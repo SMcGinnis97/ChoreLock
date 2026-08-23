@@ -47,7 +47,7 @@ export async function applyLockState(state: LockState) {
     await ScreenTime.setShield({
       enabled: state === 'locked',
       title: 'Locked until chores are done 🔒',
-      subtitle: 'Open ChoreLock to snap your proof.',
+      subtitle: 'Open ChoreKey to snap your proof.',
     });
   } catch (e) {
     console.warn('[ScreenTime] setShield failed', e);

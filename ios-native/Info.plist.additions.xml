@@ -4,4 +4,4 @@
   <string>remote-notification</string>
 </array>
 <key>NSCameraUsageDescription</key>
-<string>ChoreLock uses the camera to snap proof that a chore is done.</string>
+<string>ChoreKey uses the camera to snap proof that a chore is done.</string>

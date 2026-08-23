@@ -69,7 +69,7 @@ export default function Settings() {
           </div>
         ))}
       </div>
-      <p className="hint" style={{ textAlign: 'left' }}>iPhones and iPads register themselves when {'{'}kid{'}'} signs into ChoreLock on them. Add other devices by MAC address for router blocking.</p>
+      <p className="hint" style={{ textAlign: 'left' }}>iPhones and iPads register themselves when {'{'}kid{'}'} signs into ChoreKey on them. Add other devices by MAC address for router blocking.</p>
 
       <div className="section-label">Rules</div>
       <div className="group">

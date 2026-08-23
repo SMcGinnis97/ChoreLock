@@ -44,7 +44,7 @@ export default function Auth({ onDone, needsFamily }: { onDone: () => Promise<vo
   const Head = (
     <>
       <div style={{ fontSize: 56, textAlign: 'center' }}>🔒</div>
-      <h1 style={{ textAlign: 'center' }}>ChoreLock</h1>
+      <h1 style={{ textAlign: 'center' }}>ChoreKey</h1>
     </>
   );
 

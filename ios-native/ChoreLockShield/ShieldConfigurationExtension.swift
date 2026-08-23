@@ -12,14 +12,14 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
     private func config() -> ShieldConfiguration {
         let title = defaults?.string(forKey: "shieldTitle") ?? "Locked until chores are done 🔒"
-        let subtitle = defaults?.string(forKey: "shieldSubtitle") ?? "Open ChoreLock to snap your proof."
+        let subtitle = defaults?.string(forKey: "shieldSubtitle") ?? "Open ChoreKey to snap your proof."
         return ShieldConfiguration(
             backgroundBlurStyle: .systemThickMaterialDark,
             backgroundColor: UIColor(red: 0.898, green: 0.329, blue: 0.118, alpha: 1), // #E5541E locked orange
             icon: UIImage(systemName: "lock.fill"),
             title: .init(text: title, color: .white),
             subtitle: .init(text: subtitle, color: UIColor.white.withAlphaComponent(0.9)),
-            primaryButtonLabel: .init(text: "Open ChoreLock", color: UIColor(red: 0.898, green: 0.329, blue: 0.118, alpha: 1)),
+            primaryButtonLabel: .init(text: "Open ChoreKey", color: UIColor(red: 0.898, green: 0.329, blue: 0.118, alpha: 1)),
             primaryButtonBackgroundColor: .white,
             secondaryButtonLabel: .init(text: "Not now", color: .white)
         )

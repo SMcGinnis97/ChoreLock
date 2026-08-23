@@ -1,4 +1,6 @@
-# ChoreLock
+# ChoreKey (repo: ChoreLock)
+
+App Store name: **ChoreKey** (bundle `app.chorelock`, repo and internal identifiers stay "ChoreLock").
 
 Kids earn daily app/Wi-Fi access by finishing chores with photo proof. Parents assign, review, and override.
 

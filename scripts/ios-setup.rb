@@ -54,7 +54,7 @@ set_all(app, {
 info_path = File.join(IOS, 'App', 'Info.plist')
 info = Plist.parse_xml(info_path)
 info['UIBackgroundModes'] = (Array(info['UIBackgroundModes']) | ['remote-notification'])
-info['NSCameraUsageDescription'] ||= 'ChoreLock uses the camera to snap proof that a chore is done.'
+info['NSCameraUsageDescription'] ||= 'ChoreKey uses the camera to snap proof that a chore is done.'
 info['NSPhotoLibraryAddUsageDescription'] ||= 'Not used — ChoreLock only takes live photos.'
 File.write(info_path, info.to_plist)
 

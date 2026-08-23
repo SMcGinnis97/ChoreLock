@@ -19,7 +19,7 @@ function Welcome() {
   return (
     <div className="screen screen--center" style={{ gap: 18 }}>
       <div style={{ fontSize: 56, textAlign: 'center' }}>🔒</div>
-      <h1 style={{ textAlign: 'center' }}>ChoreLock</h1>
+      <h1 style={{ textAlign: 'center' }}>ChoreKey</h1>
       <p style={{ margin: 0, textAlign: 'center', fontWeight: 600, color: 'var(--ink-2)' }}>Mock mode — no VITE_SUPABASE_URL set.</p>
       <div className="section-label">I’m a kid</div>
       <div className="col">
