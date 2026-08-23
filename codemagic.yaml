@@ -1,0 +1,42 @@
+# ChoreLock iOS build via Codemagic (no Mac required).
+# Secrets to add in Codemagic UI: app_store_credentials group (APP_STORE_CONNECT_*), certificates.
+workflows:
+  ios-testflight:
+    name: iOS TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups: [app_store_credentials]
+      vars:
+        BUNDLE_ID: app.chorelock
+        XCODE_WORKSPACE: ios/App/App.xcworkspace
+        XCODE_SCHEME: App
+      node: 24
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install & build web
+        script: npm ci && npm run build
+      - name: Add iOS platform & sync
+        script: |
+          npx cap add ios || true
+          npx cap sync ios
+          # Copy native plugin + extension targets into the generated project.
+          cp ios-native/ScreenTimePlugin.swift ios/App/App/
+          cp ios-native/App.entitlements ios/App/App/App.entitlements
+          # NOTE: the ChoreLockShield extension target must be added to the Xcode project once
+          # (see docs/IOS_SETUP.md); after that `cap sync` preserves it.
+      - name: Set up code signing
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID.ChoreLockShield" --type IOS_APP_STORE --create
+          keychain initialize && keychain add-certificates && xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          cd ios/App && agvtool new-version -all $BUILD_NUMBER && cd ../..
+          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
+    artifacts: [build/ios/ipa/*.ipa, /tmp/xcodebuild_logs/*.log]
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

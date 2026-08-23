@@ -1,0 +1,54 @@
+/**
+ * Bridge to the native iOS Screen Time (FamilyControls / ManagedSettings) plugin.
+ *
+ * The Swift side lives in ios-native/ and is registered as the Capacitor plugin
+ * "ScreenTime". On web / before the plugin is built, every call is a no-op that
+ * logs, so the UI can be developed without a device.
+ *
+ * Flow on a kid device:
+ *   1. requestAuthorization()  — once, shows Apple's Family Controls consent.
+ *   2. pickBlockedApps()       — parent opens Apple's FamilyActivityPicker and
+ *                                chooses apps/categories/web domains to shield.
+ *                                The selection is stored natively (it's opaque).
+ *   3. applyLockState('locked' | 'unlocked') — whenever the backend state changes
+ *      (on launch, on push, on background refresh) the shield is set or cleared.
+ */
+import { registerPlugin, Capacitor } from '@capacitor/core';
+import type { LockState } from '../lib/types';
+
+export interface ScreenTimePlugin {
+  requestAuthorization(): Promise<{ status: 'approved' | 'denied' | 'notDetermined' }>;
+  pickBlockedApps(): Promise<{ appCount: number; categoryCount: number; webDomainCount: number }>;
+  getSelectionSummary(): Promise<{ appCount: number; categoryCount: number; webDomainCount: number }>;
+  setShield(opts: { enabled: boolean; title?: string; subtitle?: string }): Promise<void>;
+  getStatus(): Promise<{ authorized: boolean; shielded: boolean }>;
+}
+
+const ScreenTime = registerPlugin<ScreenTimePlugin>('ScreenTime', {
+  web: () => Promise.resolve(webStub),
+});
+
+const webStub: ScreenTimePlugin = {
+  async requestAuthorization() { console.info('[ScreenTime/web] requestAuthorization'); return { status: 'notDetermined' }; },
+  async pickBlockedApps() { console.info('[ScreenTime/web] pickBlockedApps'); return { appCount: 0, categoryCount: 0, webDomainCount: 0 }; },
+  async getSelectionSummary() { return { appCount: 0, categoryCount: 0, webDomainCount: 0 }; },
+  async setShield(opts) { console.info('[ScreenTime/web] setShield', opts); },
+  async getStatus() { return { authorized: false, shielded: false }; },
+};
+
+export const isNativeIOS = () => Capacitor.getPlatform() === 'ios';
+
+export async function applyLockState(state: LockState) {
+  if (state === 'unknown') return; // keep last known
+  try {
+    await ScreenTime.setShield({
+      enabled: state === 'locked',
+      title: 'Locked until chores are done 🔒',
+      subtitle: 'Open ChoreLock to snap your proof.',
+    });
+  } catch (e) {
+    console.warn('[ScreenTime] setShield failed', e);
+  }
+}
+
+export default ScreenTime;

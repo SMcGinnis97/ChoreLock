@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0;background:#EDEBE6;font-family:'Figtree',system-ui,sans-serif;color:#1C1B1A}
+a{color:#5B5BD6}a:hover{color:#4646C6}
+@keyframes clpulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes clshimmer{0%,100%{opacity:.6}50%{opacity:1}}
+</style>
+</helmet>
+
+<section style="padding:40px 44px 8px">
+  <div style="font-family:'Bricolage Grotesque';font-size:22px;font-weight:800">ChoreLock — screen set</div>
+  <div style="font:500 13px/1.5 'Figtree';color:#6E6A63;max-width:720px;margin-top:6px">Kids: Tenleigh (15), Taegyn (13), Dawson (9). One app, role at login. Indigo accent, warm orange = locked, green = unlocked. Streak = days with all required chores approved. Bonus chores shown separately, never block Wi-Fi.</div>
+</section>
+
+<!-- ============ KID SCREENS ============ -->
+<section style="padding:28px 44px 36px;border-bottom:1px solid rgba(0,0,0,.07)">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px"><span style="font:700 11px ui-monospace;background:#1C1B1A;color:#fff;padding:3px 8px;border-radius:4px">KID</span><span style="font:600 13px 'Figtree'">Kid Home &amp; Chore Submit</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+
+  <!-- 1a Kid Home — locked -->
+  <div id="1a" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#1a" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">1a</a> Kid Home — locked</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Kid Home locked">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:center">
+        <span style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#6E6A63">Wed, Aug 26</span>
+        <span style="width:36px;height:36px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">D</span>
+      </div>
+      <div style="padding:8px 20px 0;font-family:'Bricolage Grotesque';font-size:28px;font-weight:800;line-height:1.1">Let's do this, Dawson!</div>
+      <div style="margin:14px 20px 0;background:#E5541E;border-radius:20px;padding:18px 18px;color:#fff">
+        <div style="display:flex;align-items:center;gap:12px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 17.5h.01"></path><path d="M8.5 14a5 5 0 0 1 7 0" opacity=".45"></path><path d="M5.5 10.8a9.5 9.5 0 0 1 13 0" opacity=".45"></path><rect x="9" y="15.5" width="6" height="5" rx="1.2" fill="#fff" stroke="none"></rect><path d="M10.2 15.5v-1.3a1.8 1.8 0 0 1 3.6 0v1.3" stroke="#fff"></path></svg>
+          <div>
+            <div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">Wi-Fi Locked 🔒</div>
+            <div style="font:600 14px 'Figtree';opacity:.9;margin-top:2px">Unlocks when all your chores are approved</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin:14px 20px 0;display:flex;gap:12px">
+        <div style="flex:1;background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px">
+          <svg width="66" height="66" viewBox="0 0 72 72"><circle cx="36" cy="36" r="29" fill="none" stroke="#E8E5DF" stroke-width="9"></circle><circle cx="36" cy="36" r="29" fill="none" stroke="#5B5BD6" stroke-width="9" stroke-linecap="round" stroke-dasharray="182.2" stroke-dashoffset="136.7" transform="rotate(-90 36 36)"></circle><text x="36" y="41" text-anchor="middle" style="font:800 16px 'Figtree';fill:#1C1B1A">1/4</text></svg>
+          <div><div style="font:800 15px 'Figtree'">Chores done</div><div style="font:600 12.5px 'Figtree';color:#6E6A63">3 to go</div></div>
+        </div>
+        <div style="width:118px;background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:14px;display:flex;flex-direction:column;justify-content:center;gap:2px">
+          <div style="font:800 22px 'Figtree'">🔥 5</div>
+          <div style="font:700 12.5px 'Figtree';color:#6E6A63">day streak — don't break it!</div>
+        </div>
+      </div>
+      <div style="padding:18px 20px 6px;font:700 13px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#6E6A63">Today's chores</div>
+      <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px">
+          <span style="font-size:22px">🐕</span>
+          <div style="flex:1"><div style="font:700 16px 'Figtree'">Feed the dog</div></div>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#E6F6EC;color:#177245">Approved</span>
+        </div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px">
+          <span style="font-size:22px">🛏️</span>
+          <div style="flex:1"><div style="font:700 16px 'Figtree'">Make your bed</div><div style="font:600 12.5px 'Figtree';color:#6E6A63">Sent 4:32 PM</div></div>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#EEEEFB;color:#4646C6">Submitted</span>
+        </div>
+        <div style="background:#fff;border:2px solid #5B5BD6;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px">
+          <span style="font-size:22px">🍽️</span>
+          <div style="flex:1"><div style="font:700 16px 'Figtree'">Unload dishwasher</div></div>
+          <span style="display:flex;align-items:center;gap:6px;font:700 13px 'Figtree';padding:9px 14px;border-radius:99px;background:#5B5BD6;color:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="3"></rect><circle cx="12" cy="13.5" r="3.5"></circle><path d="M8 7l1.5-2.5h5L16 7"></path></svg>Snap it</span>
+        </div>
+        <div style="background:#FDEDEC;border:1px solid #F5C6C0;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px">
+          <span style="font-size:22px">🗑️</span>
+          <div style="flex:1"><div style="font:700 16px 'Figtree'">Take out trash</div><div style="font:600 12.5px 'Figtree';color:#C0392B">"Bin's still full — one more try!"</div></div>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#FADBD8;color:#B03A2E">Rejected</span>
+        </div>
+        <div style="padding:4px 0 0;font:700 12px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#6E6A63">Bonus — extra credit</div>
+        <div style="background:#FBFAF8;border:1px dashed #D8D4CC;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">🪴</span>
+          <div style="flex:1"><div style="font:700 15px 'Figtree';color:#3D3A36">Water the plants</div><div style="font:600 12px 'Figtree';color:#6E6A63">Doesn't affect Wi-Fi</div></div>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;border:1.5px solid #D8D4CC;color:#6E6A63">To do</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1b Kid Home — unlocked -->
+  <div id="1b" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#1b" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">1b</a> Kid Home — unlocked</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Kid Home unlocked">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:center">
+        <span style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#6E6A63">Wed, Aug 26</span>
+        <span style="width:36px;height:36px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">T</span>
+      </div>
+      <div style="padding:8px 20px 0;font-family:'Bricolage Grotesque';font-size:28px;font-weight:800;line-height:1.1">Nice work, Tenleigh!</div>
+      <div style="margin:14px 20px 0;background:#1F9D5B;border-radius:20px;padding:18px;color:#fff">
+        <div style="display:flex;align-items:center;gap:12px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 19h.01"></path><path d="M8.5 15.5a5 5 0 0 1 7 0"></path><path d="M5.5 12.3a9.5 9.5 0 0 1 13 0"></path><path d="M2.8 9a13.5 13.5 0 0 1 18.4 0"></path></svg>
+          <div>
+            <div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">Wi-Fi Unlocked ✅</div>
+            <div style="font:600 14px 'Figtree';opacity:.92;margin-top:2px">You're all set until midnight. Enjoy!</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin:14px 20px 0;display:flex;gap:12px">
+        <div style="flex:1;background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px">
+          <svg width="66" height="66" viewBox="0 0 72 72"><circle cx="36" cy="36" r="29" fill="none" stroke="#E8E5DF" stroke-width="9"></circle><circle cx="36" cy="36" r="29" fill="none" stroke="#1F9D5B" stroke-width="9" stroke-linecap="round" stroke-dasharray="182.2" stroke-dashoffset="0" transform="rotate(-90 36 36)"></circle><text x="36" y="41" text-anchor="middle" style="font:800 16px 'Figtree';fill:#1C1B1A">4/4</text></svg>
+          <div><div style="font:800 15px 'Figtree'">All done!</div><div style="font:600 12.5px 'Figtree';color:#6E6A63">Every chore approved</div></div>
+        </div>
+        <div style="width:118px;background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:14px;display:flex;flex-direction:column;justify-content:center;gap:2px">
+          <div style="font:800 22px 'Figtree'">🔥 12</div>
+          <div style="font:700 12.5px 'Figtree';color:#6E6A63">day streak — on fire!</div>
+        </div>
+      </div>
+      <div style="padding:18px 20px 6px;font:700 13px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#6E6A63">Today's chores</div>
+      <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🧺</span><div style="flex:1;font:700 16px 'Figtree'">Fold laundry</div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#E6F6EC;color:#177245">Approved</span></div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🍽️</span><div style="flex:1;font:700 16px 'Figtree'">Dinner dishes</div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#E6F6EC;color:#177245">Approved</span></div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🛋️</span><div style="flex:1;font:700 16px 'Figtree'">Tidy living room</div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#E6F6EC;color:#177245">Approved</span></div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🚮</span><div style="flex:1;font:700 16px 'Figtree'">Recycling out</div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#E6F6EC;color:#177245">Approved</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1c Chore Submit — camera -->
+  <div id="1c" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#1c" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">1c</a> Chore Submit — live camera</div>
+    <div style="width:390px;height:844px;background:#121110;border-radius:26px;border:1px solid rgba(0,0,0,.2);box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden;display:flex;flex-direction:column;position:relative" data-screen-label="Chore Submit camera">
+      <div style="padding:20px 20px 14px;display:flex;align-items:center;gap:12px;z-index:2">
+        <span style="width:40px;height:40px;border-radius:99px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"></path></svg></span>
+        <div><div style="font:800 17px 'Figtree';color:#fff">Unload dishwasher</div><div style="font:600 12.5px 'Figtree';color:rgba(255,255,255,.6)">Show the empty dishwasher</div></div>
+      </div>
+      <div style="flex:1;margin:0 12px;border-radius:20px;background:linear-gradient(160deg,#2B2925,#1B1A18 60%,#232120);position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;top:14px;left:14px;width:26px;height:26px;border-top:3px solid rgba(255,255,255,.55);border-left:3px solid rgba(255,255,255,.55);border-radius:6px 0 0 0"></div>
+        <div style="position:absolute;top:14px;right:14px;width:26px;height:26px;border-top:3px solid rgba(255,255,255,.55);border-right:3px solid rgba(255,255,255,.55);border-radius:0 6px 0 0"></div>
+        <div style="position:absolute;bottom:14px;left:14px;width:26px;height:26px;border-bottom:3px solid rgba(255,255,255,.55);border-left:3px solid rgba(255,255,255,.55);border-radius:0 0 0 6px"></div>
+        <div style="position:absolute;bottom:14px;right:14px;width:26px;height:26px;border-bottom:3px solid rgba(255,255,255,.55);border-right:3px solid rgba(255,255,255,.55);border-radius:0 0 6px 0"></div>
+        <div style="text-align:center;color:rgba(255,255,255,.45)">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.8"><rect x="3" y="7" width="18" height="13" rx="3"></rect><circle cx="12" cy="13.5" r="3.5"></circle><path d="M8 7l1.5-2.5h5L16 7"></path></svg>
+          <div style="font:600 13px 'Figtree';margin-top:6px">Live camera — no gallery uploads</div>
+        </div>
+      </div>
+      <div style="padding:16px 20px 26px;display:flex;flex-direction:column;gap:16px;z-index:2">
+        <div style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:99px;padding:13px 18px;font:600 14.5px 'Figtree';color:rgba(255,255,255,.55)">Add a note (optional)…</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:40px">
+          <span style="font:700 14px 'Figtree';color:rgba(255,255,255,.65);width:64px">Retake</span>
+          <span style="width:78px;height:78px;border-radius:99px;border:5px solid #fff;display:flex;align-items:center;justify-content:center"><span style="width:60px;height:60px;border-radius:99px;background:#fff"></span></span>
+          <span style="display:flex;align-items:center;justify-content:center;width:64px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2"></path><path d="M20 4v4h-4M4 20v-4h4"></path></svg></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1d Chore Submit — waiting -->
+  <div id="1d" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#1d" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">1d</a> Chore Submit — waiting for approval</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Chore Submit waiting">
+      <div style="padding:22px 20px 0;display:flex;align-items:center;gap:12px">
+        <span style="width:40px;height:40px;border-radius:99px;background:#fff;border:1px solid #E8E5DF;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" stroke="#1C1B1A" stroke-width="2.4" stroke-linecap="round" fill="none"><path d="M14 5l-7 7 7 7"></path></svg></span>
+        <div style="font:800 17px 'Figtree'">Unload dishwasher</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px;gap:18px;text-align:center">
+        <div style="width:250px;height:250px;border-radius:24px;background:repeating-linear-gradient(45deg,#E8E5DF,#E8E5DF 12px,#EFEDE8 12px,#EFEDE8 24px);border:1px solid #DDD9D1;display:flex;align-items:center;justify-content:center;position:relative">
+          <span style="font:700 13px 'Figtree';color:#8A857C">Your photo</span>
+          <span style="position:absolute;bottom:-16px;right:-10px;width:52px;height:52px;border-radius:99px;background:#5B5BD6;border:4px solid #F6F5F2;display:flex;align-items:center;justify-content:center;animation:clpulse 1.8s ease-in-out infinite"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.2 2"></path></svg></span>
+        </div>
+        <div style="font-family:'Bricolage Grotesque';font-size:26px;font-weight:800;margin-top:10px">Waiting for approval</div>
+        <div style="font:600 15px/1.5 'Figtree';color:#6E6A63;max-width:280px">Nice snap! We'll ping you the second it's reviewed.</div>
+        <span style="font:700 12px 'Figtree';padding:6px 12px;border-radius:99px;background:#EEEEFB;color:#4646C6">Submitted · 4:32 PM</span>
+      </div>
+      <div style="padding:0 20px 30px">
+        <div style="background:#5B5BD6;border-radius:16px;padding:16px;text-align:center;font:800 16px 'Figtree';color:#fff">Back to my chores</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ============ KID HOME STATES ============ -->
+<section style="padding:28px 44px 36px;border-bottom:1px solid rgba(0,0,0,.07)">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px"><span style="font:700 11px ui-monospace;background:#1C1B1A;color:#fff;padding:3px 8px;border-radius:4px">KID</span><span style="font:600 13px 'Figtree'">Kid Home — empty / loading / error</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+
+  <!-- 2a empty -->
+  <div id="2a" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#2a" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">2a</a> Empty — no chores today</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Kid Home empty">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:center"><span style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#6E6A63">Sat, Aug 29</span><span style="width:36px;height:36px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">D</span></div>
+      <div style="padding:8px 20px 0;font-family:'Bricolage Grotesque';font-size:28px;font-weight:800">Hey, Dawson!</div>
+      <div style="margin:14px 20px 0;background:#1F9D5B;border-radius:20px;padding:18px;color:#fff;display:flex;align-items:center;gap:12px">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 19h.01"></path><path d="M8.5 15.5a5 5 0 0 1 7 0"></path><path d="M5.5 12.3a9.5 9.5 0 0 1 13 0"></path><path d="M2.8 9a13.5 13.5 0 0 1 18.4 0"></path></svg>
+        <div><div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">Wi-Fi Unlocked ✅</div><div style="font:600 14px 'Figtree';opacity:.92">No chores today — it's all yours</div></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 40px;text-align:center">
+        <div style="width:110px;height:110px;border-radius:99px;background:#EEEEFB;display:flex;align-items:center;justify-content:center;font-size:46px">🏖️</div>
+        <div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">Day off!</div>
+        <div style="font:600 15px/1.5 'Figtree';color:#6E6A63">Nothing on your list today. Your 🔥 5-day streak is safe.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2b loading -->
+  <div id="2b" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#2b" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">2b</a> Loading — skeleton</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Kid Home loading">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:center"><span style="width:90px;height:12px;border-radius:6px;background:#E4E1DA;animation:clshimmer 1.4s ease-in-out infinite"></span><span style="width:36px;height:36px;border-radius:99px;background:#E4E1DA;animation:clshimmer 1.4s ease-in-out infinite"></span></div>
+      <div style="margin:16px 20px 0;width:220px;height:26px;border-radius:8px;background:#E4E1DA;animation:clshimmer 1.4s ease-in-out infinite"></div>
+      <div style="margin:16px 20px 0;height:96px;border-radius:20px;background:#E4E1DA;animation:clshimmer 1.4s ease-in-out infinite"></div>
+      <div style="margin:14px 20px 0;display:flex;gap:12px"><span style="flex:1;height:94px;border-radius:18px;background:#E9E6E0;animation:clshimmer 1.4s ease-in-out infinite .15s"></span><span style="width:118px;height:94px;border-radius:18px;background:#E9E6E0;animation:clshimmer 1.4s ease-in-out infinite .15s"></span></div>
+      <div style="margin:22px 20px 0;width:130px;height:12px;border-radius:6px;background:#E9E6E0;animation:clshimmer 1.4s ease-in-out infinite .3s"></div>
+      <div style="margin:12px 20px 0;display:flex;flex-direction:column;gap:10px">
+        <span style="height:64px;border-radius:16px;background:#ECEAE4;animation:clshimmer 1.4s ease-in-out infinite .3s"></span>
+        <span style="height:64px;border-radius:16px;background:#ECEAE4;animation:clshimmer 1.4s ease-in-out infinite .45s"></span>
+        <span style="height:64px;border-radius:16px;background:#ECEAE4;animation:clshimmer 1.4s ease-in-out infinite .6s"></span>
+      </div>
+      <div style="flex:1"></div>
+      <div style="padding:0 0 26px;text-align:center;font:600 13px 'Figtree';color:#8A857C">Checking your chores…</div>
+    </div>
+  </div>
+
+  <!-- 2c error -->
+  <div id="2c" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#2c" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">2c</a> Error — can't reach ChoreLock</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Kid Home error">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:center"><span style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#6E6A63">Wed, Aug 26</span><span style="width:36px;height:36px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">D</span></div>
+      <div style="margin:16px 20px 0;background:#5A564F;border-radius:20px;padding:18px;color:#fff;display:flex;align-items:center;gap:12px">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 19h.01"></path><path d="M5.5 12.3a9.5 9.5 0 0 1 6.5-2.8M18.5 12.3a9.5 9.5 0 0 0-2-1.5" opacity=".5"></path><path d="M4 4l16 16"></path></svg>
+        <div><div style="font-family:'Bricolage Grotesque';font-size:20px;font-weight:800">Can't check Wi-Fi status</div><div style="font:600 13.5px 'Figtree';opacity:.85">Your last status is still in effect</div></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 40px;text-align:center">
+        <div style="width:110px;height:110px;border-radius:99px;background:#FDEEE6;display:flex;align-items:center;justify-content:center"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#E5541E" stroke-width="2"><path d="M12 8v5" stroke-linecap="round"></path><path d="M12 16.5h.01" stroke-linecap="round"></path><path d="M10.3 3.9 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg></div>
+        <div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">Couldn't load your chores</div>
+        <div style="font:600 15px/1.5 'Figtree';color:#6E6A63">Check your connection and try again. Your streak won't be lost.</div>
+        <div style="margin-top:6px;background:#5B5BD6;border-radius:14px;padding:14px 34px;font:800 15px 'Figtree';color:#fff">Try again</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ============ PARENT SCREENS ============ -->
+<section style="padding:28px 44px 36px;border-bottom:1px solid rgba(0,0,0,.07)">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px"><span style="font:700 11px ui-monospace;background:#5B5BD6;color:#fff;padding:3px 8px;border-radius:4px">PARENT</span><span style="font:600 13px 'Figtree'">Dashboard · Approvals · Chore Setup · Devices</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+
+  <!-- 3a Parent Dashboard -->
+  <div id="3a" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#3a" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">3a</a> Parent Dashboard</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Parent Dashboard">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:flex-end">
+        <div><div style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#6E6A63">Wed, Aug 26</div><div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Today</div></div>
+        <span style="display:flex;align-items:center;gap:7px;font:700 13px 'Figtree';background:#EEEEFB;color:#4646C6;padding:8px 14px;border-radius:99px">2 to review<svg width="13" height="13" viewBox="0 0 24 24" stroke="#4646C6" stroke-width="2.6" fill="none" stroke-linecap="round"><path d="M9 5l7 7-7 7"></path></svg></span>
+      </div>
+      <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:12px;flex:1">
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:42px;height:42px;border-radius:99px;background:#0D9488;color:#fff;display:flex;align-items:center;justify-content:center;font:800 16px 'Figtree'">T</span>
+            <div style="flex:1"><div style="font:800 17px 'Figtree'">Tenleigh</div><div style="font:600 13px 'Figtree';color:#6E6A63">4 of 4 approved</div></div>
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#E6F6EC;color:#177245;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#1F9D5B"></span>Unlocked</span>
+          </div>
+          <div style="margin-top:12px;height:7px;border-radius:99px;background:#EFEDE8"><span style="display:block;width:100%;height:7px;border-radius:99px;background:#1F9D5B"></span></div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font:600 12.5px 'Figtree';color:#6E6A63">Nothing pending</span>
+            <span style="font:700 13px 'Figtree';color:#B03A2E;border:1.5px solid #EAC7C1;padding:9px 16px;border-radius:12px">Lock now</span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:42px;height:42px;border-radius:99px;background:#B45309;color:#fff;display:flex;align-items:center;justify-content:center;font:800 16px 'Figtree'">T</span>
+            <div style="flex:1"><div style="font:800 17px 'Figtree'">Taegyn</div><div style="font:600 13px 'Figtree';color:#6E6A63">2 of 4 approved</div></div>
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#FDEEE6;color:#B4451B;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#E5541E"></span>Locked</span>
+          </div>
+          <div style="margin-top:12px;height:7px;border-radius:99px;background:#EFEDE8"><span style="display:block;width:50%;height:7px;border-radius:99px;background:#5B5BD6"></span></div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';color:#4646C6"><span style="width:20px;height:20px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 11px 'Figtree'">1</span>pending review</span>
+            <span style="font:700 13px 'Figtree';color:#177245;border:1.5px solid #BFE3CC;padding:9px 16px;border-radius:12px">Unlock now</span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:42px;height:42px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 16px 'Figtree'">D</span>
+            <div style="flex:1"><div style="font:800 17px 'Figtree'">Dawson</div><div style="font:600 13px 'Figtree';color:#6E6A63">1 of 4 approved</div></div>
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#FDEEE6;color:#B4451B;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#E5541E"></span>Locked</span>
+          </div>
+          <div style="margin-top:12px;height:7px;border-radius:99px;background:#EFEDE8"><span style="display:block;width:25%;height:7px;border-radius:99px;background:#5B5BD6"></span></div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';color:#4646C6"><span style="width:20px;height:20px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 11px 'Figtree'">1</span>pending review</span>
+            <span style="font:700 13px 'Figtree';color:#177245;border:1.5px solid #BFE3CC;padding:9px 16px;border-radius:12px">Unlock now</span>
+          </div>
+        </div>
+        <div style="font:600 12.5px 'Figtree';color:#8A857C;text-align:center;margin-top:2px">Chores reset at 12:00 AM · Router connected</div>
+      </div>
+      <div style="border-top:1px solid #E8E5DF;background:#fff;display:flex;padding:10px 8px 22px">
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="2.2"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg><span style="font:700 11px 'Figtree';color:#5B5BD6">Today</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A857C" stroke-width="2"><path d="M20 12a8 8 0 1 1-3-6.2"></path><path d="M9 12l2.2 2.2L16 9.5" stroke-linecap="round"></path></svg><span style="font:700 11px 'Figtree';color:#8A857C">Approvals</span><span style="position:absolute;top:-4px;right:24px;min-width:18px;height:18px;border-radius:99px;background:#E5541E;color:#fff;font:800 11px/18px 'Figtree';text-align:center;padding:0 4px">2</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A857C" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13" stroke-linecap="round"></path><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke-linecap="round" stroke-width="3"></path></svg><span style="font:700 11px 'Figtree';color:#8A857C">Chores</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A857C" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5c.1-.4.1-.8.1-1.2z"></path></svg><span style="font:700 11px 'Figtree';color:#8A857C">Settings</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3b Approval Queue -->
+  <div id="3b" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#3b" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">3b</a> Approval Queue — card stack</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Approval Queue">
+      <div style="padding:22px 20px 6px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Approvals</div>
+        <span style="font:700 13px 'Figtree';background:#EEEEFB;color:#4646C6;padding:6px 12px;border-radius:99px">1 of 2</span>
+      </div>
+      <div style="flex:1;position:relative;padding:14px 20px 0">
+        <div style="position:absolute;top:26px;left:36px;right:36px;height:80px;background:#fff;border:1px solid #E8E5DF;border-radius:22px"></div>
+        <div style="position:relative;background:#fff;border:1px solid #E8E5DF;border-radius:22px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.08);margin-top:12px">
+          <div style="height:392px;background:repeating-linear-gradient(45deg,#E8E5DF,#E8E5DF 14px,#EFEDE8 14px,#EFEDE8 28px);display:flex;align-items:center;justify-content:center;position:relative">
+            <span style="font:700 13px 'Figtree';color:#8A857C">Photo — dog bowl, full</span>
+            <span style="position:absolute;top:14px;left:14px;font:700 12px 'Figtree';background:rgba(28,27,26,.72);color:#fff;padding:6px 11px;border-radius:99px">4:32 PM</span>
+          </div>
+          <div style="padding:16px 18px">
+            <div style="display:flex;align-items:center;gap:11px">
+              <span style="width:38px;height:38px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">D</span>
+              <div style="flex:1"><div style="font:800 16.5px 'Figtree'">Dawson · Feed the dog</div><div style="font:600 13px 'Figtree';color:#6E6A63">Required for unlock · 1st try</div></div>
+            </div>
+            <div style="margin-top:12px;background:#FBFAF8;border:1px solid #EFEDE8;border-radius:12px;padding:10px 13px;font:600 13.5px 'Figtree';color:#3D3A36">"He ate it all before I could take the pic 😅"</div>
+          </div>
+        </div>
+        <div style="margin-top:14px;text-align:center;font:600 12.5px 'Figtree';color:#8A857C">Swipe right to approve · left to reject</div>
+      </div>
+      <div style="padding:14px 20px 28px;display:flex;gap:12px">
+        <div style="flex:1;border:2px solid #EAC7C1;border-radius:16px;padding:16px;display:flex;align-items:center;justify-content:center;gap:8px;font:800 16px 'Figtree';color:#B03A2E;background:#fff"><svg width="18" height="18" viewBox="0 0 24 24" stroke="#B03A2E" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M6 6l12 12M18 6L6 18"></path></svg>Reject</div>
+        <div style="flex:1.4;background:#1F9D5B;border-radius:16px;padding:16px;display:flex;align-items:center;justify-content:center;gap:8px;font:800 16px 'Figtree';color:#fff"><svg width="18" height="18" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.8" stroke-linecap="round" fill="none"><path d="M4.5 12.5l5 5 10-11"></path></svg>Approve</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3c Reject reason sheet -->
+  <div id="3c" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#3c" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">3c</a> Reject — reason sheet</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column;position:relative" data-screen-label="Reject reason sheet">
+      <div style="position:absolute;inset:0;background:rgba(20,19,17,.45)"></div>
+      <div style="padding:22px 20px 6px;display:flex;justify-content:space-between;align-items:center;opacity:.5">
+        <div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Approvals</div>
+        <span style="font:700 13px 'Figtree';background:#EEEEFB;color:#4646C6;padding:6px 12px;border-radius:99px">1 of 2</span>
+      </div>
+      <div style="flex:1"></div>
+      <div style="position:relative;background:#fff;border-radius:26px 26px 0 0;padding:14px 20px 30px;box-shadow:0 -10px 34px rgba(0,0,0,.18)">
+        <div style="width:44px;height:5px;border-radius:99px;background:#E0DDD6;margin:0 auto 16px"></div>
+        <div style="font-family:'Bricolage Grotesque';font-size:22px;font-weight:800">Why reject it?</div>
+        <div style="font:600 13.5px 'Figtree';color:#6E6A63;margin-top:3px">Dawson sees this next to the chore.</div>
+        <div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:16px">
+          <span style="font:700 14px 'Figtree';padding:11px 16px;border-radius:99px;border:1.5px solid #E0DDD6">Not finished</span>
+          <span style="font:700 14px 'Figtree';padding:11px 16px;border-radius:99px;background:#1C1B1A;color:#fff">Photo unclear</span>
+          <span style="font:700 14px 'Figtree';padding:11px 16px;border-radius:99px;border:1.5px solid #E0DDD6">Wrong chore</span>
+          <span style="font:700 14px 'Figtree';padding:11px 16px;border-radius:99px;border:1.5px solid #E0DDD6">Redo it, please</span>
+        </div>
+        <div style="margin-top:14px;border:1.5px solid #E0DDD6;border-radius:14px;padding:13px 15px;font:600 14.5px 'Figtree';color:#8A857C">Add a note… "Bin's still full — one more try!"</div>
+        <div style="margin-top:16px;display:flex;gap:11px">
+          <div style="flex:1;border:1.5px solid #E0DDD6;border-radius:14px;padding:15px;text-align:center;font:800 15px 'Figtree'">Cancel</div>
+          <div style="flex:1.4;background:#B03A2E;border-radius:14px;padding:15px;text-align:center;font:800 15px 'Figtree';color:#fff">Send back</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3d Chore Setup -->
+  <div id="3d" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#3d" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">3d</a> Chore Setup — new chore</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Chore Setup">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:center">
+        <span style="font:700 15px 'Figtree';color:#6E6A63">Cancel</span>
+        <span style="font-family:'Bricolage Grotesque';font-size:19px;font-weight:800">New chore</span>
+        <span style="font:800 15px 'Figtree';color:#5B5BD6">Save</span>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:18px;overflow:hidden">
+        <div>
+          <div style="font:700 13px 'Figtree';color:#6E6A63;margin-bottom:7px">Chore name</div>
+          <div style="background:#fff;border:2px solid #5B5BD6;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:10px"><span style="font-size:20px">🍽️</span><span style="font:700 16px 'Figtree'">Unload dishwasher</span></div>
+        </div>
+        <div>
+          <div style="font:700 13px 'Figtree';color:#6E6A63;margin-bottom:7px">Assign to</div>
+          <div style="display:flex;gap:9px">
+            <span style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:99px;border:1.5px solid #E0DDD6;background:#fff;font:700 14px 'Figtree';color:#6E6A63"><span style="width:24px;height:24px;border-radius:99px;background:#0D9488;color:#fff;font:800 12px/24px 'Figtree';text-align:center">T</span>Tenleigh</span>
+            <span style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:99px;background:#1C1B1A;color:#fff;font:700 14px 'Figtree'"><span style="width:24px;height:24px;border-radius:99px;background:#B45309;color:#fff;font:800 12px/24px 'Figtree';text-align:center">T</span>Taegyn ✓</span>
+            <span style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:99px;background:#1C1B1A;color:#fff;font:700 14px 'Figtree'"><span style="width:24px;height:24px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 12px/24px 'Figtree';text-align:center">D</span>Dawson ✓</span>
+          </div>
+        </div>
+        <div>
+          <div style="font:700 13px 'Figtree';color:#6E6A63;margin-bottom:7px">Repeats</div>
+          <div style="display:flex;background:#ECEAE4;border-radius:14px;padding:4px;gap:4px">
+            <span style="flex:1;text-align:center;padding:11px 0;border-radius:11px;font:700 14px 'Figtree';color:#6E6A63">Daily</span>
+            <span style="flex:1;text-align:center;padding:11px 0;border-radius:11px;font:700 14px 'Figtree';color:#6E6A63">Weekdays</span>
+            <span style="flex:1;text-align:center;padding:11px 0;border-radius:11px;background:#fff;font:800 14px 'Figtree';box-shadow:0 1px 3px rgba(0,0,0,.1)">Custom</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:11px;justify-content:space-between">
+            <span style="width:42px;height:42px;border-radius:99px;border:1.5px solid #E0DDD6;background:#fff;font:800 13px/40px 'Figtree';text-align:center;color:#8A857C">S</span>
+            <span style="width:42px;height:42px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 13px/42px 'Figtree';text-align:center">M</span>
+            <span style="width:42px;height:42px;border-radius:99px;border:1.5px solid #E0DDD6;background:#fff;font:800 13px/40px 'Figtree';text-align:center;color:#8A857C">T</span>
+            <span style="width:42px;height:42px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 13px/42px 'Figtree';text-align:center">W</span>
+            <span style="width:42px;height:42px;border-radius:99px;border:1.5px solid #E0DDD6;background:#fff;font:800 13px/40px 'Figtree';text-align:center;color:#8A857C">T</span>
+            <span style="width:42px;height:42px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 13px/42px 'Figtree';text-align:center">F</span>
+            <span style="width:42px;height:42px;border-radius:99px;border:1.5px solid #E0DDD6;background:#fff;font:800 13px/40px 'Figtree';text-align:center;color:#8A857C">S</span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="flex:1"><div style="font:800 15.5px 'Figtree'">Required for Wi-Fi unlock</div><div style="font:600 13px 'Figtree';color:#6E6A63;margin-top:2px">Off = bonus chore. Bonus chores never block Wi-Fi.</div></div>
+          <span style="width:52px;height:31px;border-radius:99px;background:#1F9D5B;position:relative;flex:none"><span style="position:absolute;top:3px;right:3px;width:25px;height:25px;border-radius:99px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></span>
+        </div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="flex:1"><div style="font:800 15.5px 'Figtree'">Photo proof</div><div style="font:600 13px 'Figtree';color:#6E6A63;margin-top:2px">Kid must snap a live photo to submit</div></div>
+          <span style="width:52px;height:31px;border-radius:99px;background:#1F9D5B;position:relative;flex:none"><span style="position:absolute;top:3px;right:3px;width:25px;height:25px;border-radius:99px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></span>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="padding:0 20px 28px"><div style="background:#5B5BD6;border-radius:16px;padding:17px;text-align:center;font:800 16px 'Figtree';color:#fff">Save chore</div></div>
+    </div>
+  </div>
+
+  <!-- 3e Devices & Settings -->
+  <div id="3e" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#3e" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">3e</a> Devices &amp; Settings</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Devices and Settings">
+      <div style="padding:22px 20px 0"><div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Settings</div></div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:12px">
+          <span style="width:40px;height:40px;border-radius:12px;background:#E6F6EC;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F9D5B" stroke-width="2"><rect x="3" y="13" width="18" height="6" rx="2"></rect><path d="M6.5 16h.01M9.5 16h.01" stroke-linecap="round" stroke-width="2.6"></path><path d="M7 13l3-6h4l3 6"></path></svg></span>
+          <div style="flex:1"><div style="font:800 15px 'Figtree'">Router connected</div><div style="font:600 12.5px 'Figtree';color:#6E6A63">TP-Link Archer AX55 · last check 2 min ago</div></div>
+          <span style="width:9px;height:9px;border-radius:99px;background:#1F9D5B"></span>
+        </div>
+        <div>
+          <div style="font:700 13px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#6E6A63;margin-bottom:8px">Kid devices</div>
+          <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;overflow:hidden">
+            <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #EFEDE8">
+              <span style="width:26px;height:26px;border-radius:99px;background:#0D9488;color:#fff;font:800 12px/26px 'Figtree';text-align:center">T</span>
+              <div style="flex:1"><div style="font:700 15px 'Figtree'">Tenleigh's iPhone</div><div style="font:600 12px ui-monospace;color:#8A857C">5E:A2:0C:41:9B:D7</div></div>
+              <span style="font:700 11.5px 'Figtree';background:#E6F6EC;color:#177245;padding:4px 10px;border-radius:99px">Online</span>
+            </div>
+            <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #EFEDE8">
+              <span style="width:26px;height:26px;border-radius:99px;background:#B45309;color:#fff;font:800 12px/26px 'Figtree';text-align:center">T</span>
+              <div style="flex:1"><div style="font:700 15px 'Figtree'">Taegyn's laptop</div><div style="font:600 12px ui-monospace;color:#8A857C">C4:7D:FE:12:33:08</div></div>
+              <span style="font:700 11.5px 'Figtree';background:#FDEEE6;color:#B4451B;padding:4px 10px;border-radius:99px">Blocked</span>
+            </div>
+            <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #EFEDE8">
+              <span style="width:26px;height:26px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 12px/26px 'Figtree';text-align:center">D</span>
+              <div style="flex:1"><div style="font:700 15px 'Figtree'">Dawson's tablet</div><div style="font:600 12px ui-monospace;color:#8A857C">88:10:BA:6F:2A:C1</div></div>
+              <span style="font:700 11.5px 'Figtree';background:#FDEEE6;color:#B4451B;padding:4px 10px;border-radius:99px">Blocked</span>
+            </div>
+            <div style="padding:14px 16px;display:flex;align-items:center;gap:9px;font:800 14.5px 'Figtree';color:#5B5BD6"><svg width="17" height="17" viewBox="0 0 24 24" stroke="#5B5BD6" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M12 5v14M5 12h14"></path></svg>Add a device</div>
+          </div>
+        </div>
+        <div>
+          <div style="font:700 13px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#6E6A63;margin-bottom:8px">Rules</div>
+          <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;overflow:hidden">
+            <div style="padding:15px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #EFEDE8">
+              <div style="flex:1"><div style="font:700 15px 'Figtree'">Daily reset time</div><div style="font:600 12.5px 'Figtree';color:#6E6A63">Chores &amp; Wi-Fi reset each day</div></div>
+              <span style="font:700 14px 'Figtree';color:#5B5BD6">12:00 AM</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" stroke="#B7B2A9" stroke-width="2.6" fill="none" stroke-linecap="round"><path d="M9 5l7 7-7 7"></path></svg>
+            </div>
+            <div style="padding:15px 16px;display:flex;align-items:center;gap:12px">
+              <div style="flex:1"><div style="font:700 15px 'Figtree'">Auto-approve photos</div><div style="font:600 12.5px 'Figtree';color:#6E6A63">Skip review — unlock on submission</div></div>
+              <span style="width:52px;height:31px;border-radius:99px;background:#DDD9D1;position:relative;flex:none"><span style="position:absolute;top:3px;left:3px;width:25px;height:25px;border-radius:99px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="border-top:1px solid #E8E5DF;background:#fff;display:flex;padding:10px 8px 22px">
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A857C" stroke-width="2"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg><span style="font:700 11px 'Figtree';color:#8A857C">Today</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A857C" stroke-width="2"><path d="M20 12a8 8 0 1 1-3-6.2"></path><path d="M9 12l2.2 2.2L16 9.5" stroke-linecap="round"></path></svg><span style="font:700 11px 'Figtree';color:#8A857C">Approvals</span><span style="position:absolute;top:-4px;right:24px;min-width:18px;height:18px;border-radius:99px;background:#E5541E;color:#fff;font:800 11px/18px 'Figtree';text-align:center;padding:0 4px">2</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A857C" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13" stroke-linecap="round"></path><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke-linecap="round" stroke-width="3"></path></svg><span style="font:700 11px 'Figtree';color:#8A857C">Chores</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B5BD6" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5c.1-.4.1-.8.1-1.2z"></path></svg><span style="font:700 11px 'Figtree';color:#5B5BD6">Settings</span></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ============ APPROVAL QUEUE STATES ============ -->
+<section style="padding:28px 44px 36px;border-bottom:1px solid rgba(0,0,0,.07)">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px"><span style="font:700 11px ui-monospace;background:#5B5BD6;color:#fff;padding:3px 8px;border-radius:4px">PARENT</span><span style="font:600 13px 'Figtree'">Approval Queue — empty / loading / error</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+
+  <!-- 4a empty -->
+  <div id="4a" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#4a" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">4a</a> Empty — all caught up</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Approval Queue empty">
+      <div style="padding:22px 20px 6px"><div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Approvals</div></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 44px;text-align:center">
+        <div style="width:110px;height:110px;border-radius:99px;background:#E6F6EC;display:flex;align-items:center;justify-content:center"><svg width="48" height="48" viewBox="0 0 24 24" stroke="#1F9D5B" stroke-width="2.4" stroke-linecap="round" fill="none"><path d="M4.5 12.5l5 5 10-11"></path></svg></div>
+        <div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">All caught up</div>
+        <div style="font:600 15px/1.5 'Figtree';color:#6E6A63">New photo submissions land here. Today: 6 approved, 1 sent back.</div>
+      </div>
+      <div style="padding:0 20px 30px"><div style="border:1.5px solid #E0DDD6;background:#fff;border-radius:16px;padding:15px;text-align:center;font:800 15px 'Figtree';color:#3D3A36">Review today's history</div></div>
+    </div>
+  </div>
+
+  <!-- 4b loading -->
+  <div id="4b" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#4b" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">4b</a> Loading — skeleton card</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Approval Queue loading">
+      <div style="padding:22px 20px 6px;display:flex;justify-content:space-between;align-items:center"><div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Approvals</div><span style="width:56px;height:26px;border-radius:99px;background:#E4E1DA;animation:clshimmer 1.4s ease-in-out infinite"></span></div>
+      <div style="flex:1;padding:14px 20px 0">
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:22px;overflow:hidden;margin-top:12px">
+          <div style="height:392px;background:#E9E6E0;animation:clshimmer 1.4s ease-in-out infinite"></div>
+          <div style="padding:16px 18px;display:flex;align-items:center;gap:11px">
+            <span style="width:38px;height:38px;border-radius:99px;background:#E9E6E0;animation:clshimmer 1.4s ease-in-out infinite .15s"></span>
+            <div style="display:flex;flex-direction:column;gap:7px"><span style="width:170px;height:13px;border-radius:6px;background:#E9E6E0;animation:clshimmer 1.4s ease-in-out infinite .15s"></span><span style="width:110px;height:11px;border-radius:6px;background:#EFEDE8;animation:clshimmer 1.4s ease-in-out infinite .3s"></span></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;text-align:center;font:600 13px 'Figtree';color:#8A857C">Loading submissions…</div>
+      </div>
+      <div style="padding:14px 20px 28px;display:flex;gap:12px"><span style="flex:1;height:56px;border-radius:16px;background:#ECEAE4;animation:clshimmer 1.4s ease-in-out infinite .3s"></span><span style="flex:1.4;height:56px;border-radius:16px;background:#E4E1DA;animation:clshimmer 1.4s ease-in-out infinite .45s"></span></div>
+    </div>
+  </div>
+
+  <!-- 4c error -->
+  <div id="4c" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#4c" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">4c</a> Error — couldn't load</div>
+    <div style="width:390px;height:844px;background:#F6F5F2;border-radius:26px;border:1px solid rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column" data-screen-label="Approval Queue error">
+      <div style="padding:22px 20px 6px"><div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Approvals</div></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 44px;text-align:center">
+        <div style="width:110px;height:110px;border-radius:99px;background:#FDEEE6;display:flex;align-items:center;justify-content:center"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#E5541E" stroke-width="2"><path d="M12 8v5" stroke-linecap="round"></path><path d="M12 16.5h.01" stroke-linecap="round"></path><path d="M10.3 3.9 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg></div>
+        <div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">Couldn't load submissions</div>
+        <div style="font:600 15px/1.5 'Figtree';color:#6E6A63">2 photos are waiting. Check your connection — nothing was lost.</div>
+        <div style="margin-top:6px;background:#5B5BD6;border-radius:14px;padding:14px 34px;font:800 15px 'Figtree';color:#fff">Try again</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ============ DARK MODE ============ -->
+<section style="padding:28px 44px 36px;border-bottom:1px solid rgba(0,0,0,.07)">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px"><span style="font:700 11px ui-monospace;background:#1C1B1A;color:#fff;padding:3px 8px;border-radius:4px">DARK</span><span style="font:600 13px 'Figtree'">Dark mode — Kid Home &amp; Parent Dashboard</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+
+  <!-- 5a kid dark -->
+  <div id="5a" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#5a" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">5a</a> Kid Home — dark, locked</div>
+    <div style="width:390px;height:844px;background:#161513;border-radius:26px;border:1px solid rgba(0,0,0,.3);overflow:hidden;display:flex;flex-direction:column;color:#F2F0EC" data-screen-label="Kid Home dark">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:center">
+        <span style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#A29D94">Wed, Aug 26</span>
+        <span style="width:36px;height:36px;border-radius:99px;background:#6B6BE0;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">D</span>
+      </div>
+      <div style="padding:8px 20px 0;font-family:'Bricolage Grotesque';font-size:28px;font-weight:800">Let's do this, Dawson!</div>
+      <div style="margin:14px 20px 0;background:#D14A16;border-radius:20px;padding:18px;color:#fff;display:flex;align-items:center;gap:12px">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 17.5h.01"></path><path d="M8.5 14a5 5 0 0 1 7 0" opacity=".45"></path><path d="M5.5 10.8a9.5 9.5 0 0 1 13 0" opacity=".45"></path><rect x="9" y="15.5" width="6" height="5" rx="1.2" fill="#fff" stroke="none"></rect><path d="M10.2 15.5v-1.3a1.8 1.8 0 0 1 3.6 0v1.3" stroke="#fff"></path></svg>
+        <div><div style="font-family:'Bricolage Grotesque';font-size:23px;font-weight:800">Wi-Fi Locked 🔒</div><div style="font:600 14px 'Figtree';opacity:.9">Unlocks when all your chores are approved</div></div>
+      </div>
+      <div style="margin:14px 20px 0;display:flex;gap:12px">
+        <div style="flex:1;background:#211F1C;border:1px solid #34322D;border-radius:18px;padding:14px;display:flex;align-items:center;gap:12px">
+          <svg width="66" height="66" viewBox="0 0 72 72"><circle cx="36" cy="36" r="29" fill="none" stroke="#34322D" stroke-width="9"></circle><circle cx="36" cy="36" r="29" fill="none" stroke="#8583EA" stroke-width="9" stroke-linecap="round" stroke-dasharray="182.2" stroke-dashoffset="136.7" transform="rotate(-90 36 36)"></circle><text x="36" y="41" text-anchor="middle" style="font:800 16px 'Figtree';fill:#F2F0EC">1/4</text></svg>
+          <div><div style="font:800 15px 'Figtree'">Chores done</div><div style="font:600 12.5px 'Figtree';color:#A29D94">3 to go</div></div>
+        </div>
+        <div style="width:118px;background:#211F1C;border:1px solid #34322D;border-radius:18px;padding:14px;display:flex;flex-direction:column;justify-content:center;gap:2px">
+          <div style="font:800 22px 'Figtree'">🔥 5</div><div style="font:700 12.5px 'Figtree';color:#A29D94">day streak — don't break it!</div>
+        </div>
+      </div>
+      <div style="padding:18px 20px 6px;font:700 13px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#A29D94">Today's chores</div>
+      <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="background:#211F1C;border:1px solid #34322D;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🐕</span><div style="flex:1;font:700 16px 'Figtree'">Feed the dog</div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#153826;color:#5DC389">Approved</span></div>
+        <div style="background:#211F1C;border:1px solid #34322D;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🛏️</span><div style="flex:1"><div style="font:700 16px 'Figtree'">Make your bed</div><div style="font:600 12.5px 'Figtree';color:#A29D94">Sent 4:32 PM</div></div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#26264A;color:#A5A4F0">Submitted</span></div>
+        <div style="background:#211F1C;border:2px solid #8583EA;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🍽️</span><div style="flex:1;font:700 16px 'Figtree'">Unload dishwasher</div><span style="display:flex;align-items:center;gap:6px;font:700 13px 'Figtree';padding:9px 14px;border-radius:99px;background:#6B6BE0;color:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="3"></rect><circle cx="12" cy="13.5" r="3.5"></circle><path d="M8 7l1.5-2.5h5L16 7"></path></svg>Snap it</span></div>
+        <div style="background:#2A1B16;border:1px solid #4A2A20;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;min-height:56px"><span style="font-size:22px">🗑️</span><div style="flex:1"><div style="font:700 16px 'Figtree'">Take out trash</div><div style="font:600 12.5px 'Figtree';color:#E58A72">"Bin's still full — one more try!"</div></div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#4A2420;color:#F0968A">Rejected</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5b parent dark -->
+  <div id="5b" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#5b" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">5b</a> Parent Dashboard — dark</div>
+    <div style="width:390px;height:844px;background:#161513;border-radius:26px;border:1px solid rgba(0,0,0,.3);overflow:hidden;display:flex;flex-direction:column;color:#F2F0EC" data-screen-label="Parent Dashboard dark">
+      <div style="padding:22px 20px 0;display:flex;justify-content:space-between;align-items:flex-end">
+        <div><div style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#A29D94">Wed, Aug 26</div><div style="font-family:'Bricolage Grotesque';font-size:27px;font-weight:800">Today</div></div>
+        <span style="font:700 13px 'Figtree';background:#26264A;color:#A5A4F0;padding:8px 14px;border-radius:99px">2 to review</span>
+      </div>
+      <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:12px;flex:1">
+        <div style="background:#211F1C;border:1px solid #34322D;border-radius:18px;padding:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:42px;height:42px;border-radius:99px;background:#0D9488;color:#fff;display:flex;align-items:center;justify-content:center;font:800 16px 'Figtree'">T</span>
+            <div style="flex:1"><div style="font:800 17px 'Figtree'">Tenleigh</div><div style="font:600 13px 'Figtree';color:#A29D94">4 of 4 approved</div></div>
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#153826;color:#5DC389;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#2FB56B"></span>Unlocked</span>
+          </div>
+          <div style="margin-top:12px;height:7px;border-radius:99px;background:#34322D"><span style="display:block;width:100%;height:7px;border-radius:99px;background:#2FB56B"></span></div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center"><span style="font:600 12.5px 'Figtree';color:#A29D94">Nothing pending</span><span style="font:700 13px 'Figtree';color:#F0968A;border:1.5px solid #4A2A20;padding:9px 16px;border-radius:12px">Lock now</span></div>
+        </div>
+        <div style="background:#211F1C;border:1px solid #34322D;border-radius:18px;padding:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:42px;height:42px;border-radius:99px;background:#B45309;color:#fff;display:flex;align-items:center;justify-content:center;font:800 16px 'Figtree'">T</span>
+            <div style="flex:1"><div style="font:800 17px 'Figtree'">Taegyn</div><div style="font:600 13px 'Figtree';color:#A29D94">2 of 4 approved</div></div>
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#3A2118;color:#F0A283;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#E5541E"></span>Locked</span>
+          </div>
+          <div style="margin-top:12px;height:7px;border-radius:99px;background:#34322D"><span style="display:block;width:50%;height:7px;border-radius:99px;background:#8583EA"></span></div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';color:#A5A4F0"><span style="width:20px;height:20px;border-radius:99px;background:#6B6BE0;color:#fff;font:800 11px/20px 'Figtree';text-align:center">1</span>pending review</span><span style="font:700 13px 'Figtree';color:#5DC389;border:1.5px solid #1F4530;padding:9px 16px;border-radius:12px">Unlock now</span></div>
+        </div>
+        <div style="background:#211F1C;border:1px solid #34322D;border-radius:18px;padding:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:42px;height:42px;border-radius:99px;background:#6B6BE0;color:#fff;display:flex;align-items:center;justify-content:center;font:800 16px 'Figtree'">D</span>
+            <div style="flex:1"><div style="font:800 17px 'Figtree'">Dawson</div><div style="font:600 13px 'Figtree';color:#A29D94">1 of 4 approved</div></div>
+            <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#3A2118;color:#F0A283;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#E5541E"></span>Locked</span>
+          </div>
+          <div style="margin-top:12px;height:7px;border-radius:99px;background:#34322D"><span style="display:block;width:25%;height:7px;border-radius:99px;background:#8583EA"></span></div>
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';color:#A5A4F0"><span style="width:20px;height:20px;border-radius:99px;background:#6B6BE0;color:#fff;font:800 11px/20px 'Figtree';text-align:center">1</span>pending review</span><span style="font:700 13px 'Figtree';color:#5DC389;border:1.5px solid #1F4530;padding:9px 16px;border-radius:12px">Unlock now</span></div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #34322D;background:#1B1A17;display:flex;padding:10px 8px 22px">
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8583EA" stroke-width="2.2"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg><span style="font:700 11px 'Figtree';color:#8583EA">Today</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#847F76" stroke-width="2"><path d="M20 12a8 8 0 1 1-3-6.2"></path><path d="M9 12l2.2 2.2L16 9.5" stroke-linecap="round"></path></svg><span style="font:700 11px 'Figtree';color:#847F76">Approvals</span><span style="position:absolute;top:-4px;right:24px;min-width:18px;height:18px;border-radius:99px;background:#E5541E;color:#fff;font:800 11px/18px 'Figtree';text-align:center;padding:0 4px">2</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#847F76" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13" stroke-linecap="round"></path><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke-linecap="round" stroke-width="3"></path></svg><span style="font:700 11px 'Figtree';color:#847F76">Chores</span></span>
+        <span style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#847F76" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.5-2-1.5c.1-.4.1-.8.1-1.2z"></path></svg><span style="font:700 11px 'Figtree';color:#847F76">Settings</span></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ============ TABLET DASHBOARD ============ -->
+<section style="padding:28px 44px 36px;border-bottom:1px solid rgba(0,0,0,.07)">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px"><span style="font:700 11px ui-monospace;background:#5B5BD6;color:#fff;padding:3px 8px;border-radius:4px">TABLET</span><span style="font:600 13px 'Figtree'">Parent Dashboard — tablet / desktop</span></div>
+
+  <div id="6a" style="display:flex;flex-direction:column;gap:8px">
+    <div style="font:600 11px ui-monospace;color:#6E6A63"><a href="#6a" style="text-decoration:none;background:rgba(0,0,0,.08);color:#1C1B1A;padding:3px 7px;border-radius:5px">6a</a> 1112 × 740</div>
+    <div style="width:1112px;height:740px;background:#F6F5F2;border-radius:20px;border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden;display:flex" data-screen-label="Parent Dashboard tablet">
+      <div style="width:216px;border-right:1px solid #E8E5DF;background:#fff;padding:24px 14px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:center;gap:9px;padding:0 10px 18px">
+          <span style="width:30px;height:30px;border-radius:9px;background:#5B5BD6;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M5.5 11a9.5 9.5 0 0 1 13 0"></path><rect x="9" y="13.5" width="6" height="5.5" rx="1.2" fill="#fff" stroke="none"></rect></svg></span>
+          <span style="font-family:'Bricolage Grotesque';font-size:17px;font-weight:800">ChoreLock</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;background:#EEEEFB;font:700 14px 'Figtree';color:#4646C6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4646C6" stroke-width="2.2"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>Today</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;font:700 14px 'Figtree';color:#6E6A63"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6E6A63" stroke-width="2"><path d="M20 12a8 8 0 1 1-3-6.2"></path><path d="M9 12l2.2 2.2L16 9.5" stroke-linecap="round"></path></svg>Approvals<span style="margin-left:auto;min-width:20px;height:20px;border-radius:99px;background:#E5541E;color:#fff;font:800 11.5px/20px 'Figtree';text-align:center;padding:0 5px">2</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;font:700 14px 'Figtree';color:#6E6A63"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6E6A63" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13" stroke-linecap="round"></path><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke-linecap="round" stroke-width="3"></path></svg>Chores</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;font:700 14px 'Figtree';color:#6E6A63"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6E6A63" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12l2.2-1.6-1.6-2.8-2.6.9a5.5 5.5 0 0 0-1.7-1L15 4.7h-3.2l-.3 2.8a5.5 5.5 0 0 0-1.7 1l-2.6-.9-1.6 2.8L7.8 12l-2.2 1.6 1.6 2.8 2.6-.9a5.5 5.5 0 0 0 1.7 1l.3 2.8H15l.3-2.8a5.5 5.5 0 0 0 1.7-1l2.6.9 1.6-2.8z"></path></svg>Settings</div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;background:#FBFAF8;border:1px solid #EFEDE8;border-radius:12px"><span style="width:8px;height:8px;border-radius:99px;background:#1F9D5B"></span><span style="font:600 12px 'Figtree';color:#6E6A63">Router connected</span></div>
+      </div>
+      <div style="flex:1;padding:26px 28px;display:flex;flex-direction:column;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px">
+          <div><div style="font:700 12px 'Figtree';letter-spacing:.08em;text-transform:uppercase;color:#6E6A63">Wed, Aug 26</div><div style="font-family:'Bricolage Grotesque';font-size:26px;font-weight:800">Today</div></div>
+          <span style="font:600 12.5px 'Figtree';color:#8A857C">Chores reset at 12:00 AM</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+          <div style="background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:18px">
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:40px;height:40px;border-radius:99px;background:#0D9488;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">T</span><div><div style="font:800 16px 'Figtree'">Tenleigh</div><div style="font:600 12px 'Figtree';color:#6E6A63">15</div></div></div>
+            <div style="margin-top:14px;display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';color:#177245"><span style="width:8px;height:8px;border-radius:99px;background:#1F9D5B"></span>Unlocked · 4/4 approved</div>
+            <div style="margin-top:10px;height:7px;border-radius:99px;background:#EFEDE8"><span style="display:block;width:100%;height:7px;border-radius:99px;background:#1F9D5B"></span></div>
+            <div style="margin-top:14px;display:flex;gap:8px"><span style="flex:1;text-align:center;font:700 12.5px 'Figtree';color:#B03A2E;border:1.5px solid #EAC7C1;padding:9px 0;border-radius:11px">Lock now</span><span style="flex:1;text-align:center;font:700 12.5px 'Figtree';color:#3D3A36;border:1.5px solid #E0DDD6;padding:9px 0;border-radius:11px">View chores</span></div>
+          </div>
+          <div style="background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:18px">
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:40px;height:40px;border-radius:99px;background:#B45309;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">T</span><div><div style="font:800 16px 'Figtree'">Taegyn</div><div style="font:600 12px 'Figtree';color:#6E6A63">13</div></div><span style="margin-left:auto;min-width:20px;height:20px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 11.5px/20px 'Figtree';text-align:center;padding:0 5px">1</span></div>
+            <div style="margin-top:14px;display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';color:#B4451B"><span style="width:8px;height:8px;border-radius:99px;background:#E5541E"></span>Locked · 2/4 approved</div>
+            <div style="margin-top:10px;height:7px;border-radius:99px;background:#EFEDE8"><span style="display:block;width:50%;height:7px;border-radius:99px;background:#5B5BD6"></span></div>
+            <div style="margin-top:14px;display:flex;gap:8px"><span style="flex:1;text-align:center;font:700 12.5px 'Figtree';color:#177245;border:1.5px solid #BFE3CC;padding:9px 0;border-radius:11px">Unlock now</span><span style="flex:1;text-align:center;font:700 12.5px 'Figtree';color:#3D3A36;border:1.5px solid #E0DDD6;padding:9px 0;border-radius:11px">View chores</span></div>
+          </div>
+          <div style="background:#fff;border:1px solid #E8E5DF;border-radius:18px;padding:18px">
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:40px;height:40px;border-radius:99px;background:#5B5BD6;color:#fff;display:flex;align-items:center;justify-content:center;font:800 15px 'Figtree'">D</span><div><div style="font:800 16px 'Figtree'">Dawson</div><div style="font:600 12px 'Figtree';color:#6E6A63">9</div></div><span style="margin-left:auto;min-width:20px;height:20px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 11.5px/20px 'Figtree';text-align:center;padding:0 5px">1</span></div>
+            <div style="margin-top:14px;display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';color:#B4451B"><span style="width:8px;height:8px;border-radius:99px;background:#E5541E"></span>Locked · 1/4 approved</div>
+            <div style="margin-top:10px;height:7px;border-radius:99px;background:#EFEDE8"><span style="display:block;width:25%;height:7px;border-radius:99px;background:#5B5BD6"></span></div>
+            <div style="margin-top:14px;display:flex;gap:8px"><span style="flex:1;text-align:center;font:700 12.5px 'Figtree';color:#177245;border:1.5px solid #BFE3CC;padding:9px 0;border-radius:11px">Unlock now</span><span style="flex:1;text-align:center;font:700 12.5px 'Figtree';color:#3D3A36;border:1.5px solid #E0DDD6;padding:9px 0;border-radius:11px">View chores</span></div>
+          </div>
+        </div>
+        <div style="margin-top:20px;display:flex;align-items:baseline;justify-content:space-between"><div style="font:700 13px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#6E6A63">Pending approvals</div><span style="font:700 13px 'Figtree';color:#5B5BD6">Open queue →</span></div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:12px;display:flex;gap:12px;align-items:center">
+            <span style="width:74px;height:74px;border-radius:12px;background:repeating-linear-gradient(45deg,#E8E5DF,#E8E5DF 10px,#EFEDE8 10px,#EFEDE8 20px);flex:none;display:flex;align-items:center;justify-content:center;font:700 10px 'Figtree';color:#8A857C">Photo</span>
+            <div style="flex:1;min-width:0"><div style="font:800 14.5px 'Figtree'">Dawson · Feed the dog</div><div style="font:600 12px 'Figtree';color:#6E6A63">4:32 PM · required</div></div>
+            <div style="display:flex;gap:7px"><span style="width:40px;height:40px;border-radius:11px;border:1.5px solid #EAC7C1;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#B03A2E" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M6 6l12 12M18 6L6 18"></path></svg></span><span style="width:40px;height:40px;border-radius:11px;background:#1F9D5B;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.8" stroke-linecap="round" fill="none"><path d="M4.5 12.5l5 5 10-11"></path></svg></span></div>
+          </div>
+          <div style="background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:12px;display:flex;gap:12px;align-items:center">
+            <span style="width:74px;height:74px;border-radius:12px;background:repeating-linear-gradient(45deg,#E8E5DF,#E8E5DF 10px,#EFEDE8 10px,#EFEDE8 20px);flex:none;display:flex;align-items:center;justify-content:center;font:700 10px 'Figtree';color:#8A857C">Photo</span>
+            <div style="flex:1;min-width:0"><div style="font:800 14.5px 'Figtree'">Taegyn · Mow the lawn</div><div style="font:600 12px 'Figtree';color:#6E6A63">5:10 PM · required</div></div>
+            <div style="display:flex;gap:7px"><span style="width:40px;height:40px;border-radius:11px;border:1.5px solid #EAC7C1;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#B03A2E" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M6 6l12 12M18 6L6 18"></path></svg></span><span style="width:40px;height:40px;border-radius:11px;background:#1F9D5B;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.8" stroke-linecap="round" fill="none"><path d="M4.5 12.5l5 5 10-11"></path></svg></span></div>
+          </div>
+        </div>
+        <div style="margin-top:20px;font:700 13px 'Figtree';letter-spacing:.06em;text-transform:uppercase;color:#6E6A63">This week</div>
+        <div style="margin-top:10px;background:#fff;border:1px solid #E8E5DF;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:22px">
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font:800 24px 'Figtree'">86%</span><span style="font:600 12.5px 'Figtree';color:#6E6A63">chores approved</span></div>
+          <div style="flex:1;display:flex;align-items:flex-end;gap:10px;height:44px">
+            <span style="flex:1;height:70%;border-radius:6px 6px 0 0;background:#DBDAF5"></span><span style="flex:1;height:90%;border-radius:6px 6px 0 0;background:#DBDAF5"></span><span style="flex:1;height:100%;border-radius:6px 6px 0 0;background:#DBDAF5"></span><span style="flex:1;height:60%;border-radius:6px 6px 0 0;background:#DBDAF5"></span><span style="flex:1;height:84%;border-radius:6px 6px 0 0;background:#5B5BD6"></span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:8px"><span style="font:800 24px 'Figtree'">🔥 3</span><span style="font:600 12.5px 'Figtree';color:#6E6A63">active streaks</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPONENT SHEET ============ -->
+<section style="padding:28px 44px 60px">
+<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px"><span style="font:700 11px ui-monospace;background:#1C1B1A;color:#fff;padding:3px 8px;border-radius:4px">KIT</span><span style="font:600 13px 'Figtree'">Component sheet</span></div>
+  <div id="7a" style="width:980px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:20px;padding:32px 36px;display:flex;flex-direction:column;gap:30px" data-screen-label="Component sheet">
+    <div style="display:flex;gap:60px;flex-wrap:wrap">
+      <div>
+        <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Status chips</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;border:1.5px solid #D8D4CC;color:#6E6A63">To do</span>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#EEEEFB;color:#4646C6">Submitted</span>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#E6F6EC;color:#177245">Approved</span>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#FADBD8;color:#B03A2E">Rejected</span>
+          <span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#FBF3D9;color:#8A6D1A">Bonus</span>
+        </div>
+      </div>
+      <div>
+        <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Wi-Fi pills (parent)</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#E6F6EC;color:#177245;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#1F9D5B"></span>Unlocked</span>
+          <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#FDEEE6;color:#B4451B;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#E5541E"></span>Locked</span>
+          <span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';background:#F1EFEA;color:#6E6A63;padding:6px 12px;border-radius:99px"><span style="width:7px;height:7px;border-radius:99px;background:#B7B2A9"></span>Unknown</span>
+        </div>
+      </div>
+      <div>
+        <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Type &amp; color</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="width:34px;height:34px;border-radius:9px;background:#5B5BD6" title="Accent"></span>
+          <span style="width:34px;height:34px;border-radius:9px;background:#1F9D5B" title="Unlocked"></span>
+          <span style="width:34px;height:34px;border-radius:9px;background:#E5541E" title="Locked"></span>
+          <span style="width:34px;height:34px;border-radius:9px;background:#1C1B1A"></span>
+          <span style="width:34px;height:34px;border-radius:9px;background:#F6F5F2;border:1px solid #E0DDD6"></span>
+          <span style="font:600 12px 'Figtree';color:#6E6A63;margin-left:8px">Bricolage Grotesque 800 / Figtree 400–800</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <div style="width:440px">
+        <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Wi-Fi banner — 3 states</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:#1F9D5B;border-radius:18px;padding:14px 16px;color:#fff;display:flex;align-items:center;gap:11px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 19h.01"></path><path d="M8.5 15.5a5 5 0 0 1 7 0"></path><path d="M5.5 12.3a9.5 9.5 0 0 1 13 0"></path></svg><div><div style="font-family:'Bricolage Grotesque';font-size:18px;font-weight:800">Wi-Fi Unlocked ✅</div><div style="font:600 12.5px 'Figtree';opacity:.92">You're all set until midnight</div></div></div>
+          <div style="background:#E5541E;border-radius:18px;padding:14px 16px;color:#fff;display:flex;align-items:center;gap:11px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="14" width="6" height="5.5" rx="1.2" fill="#fff" stroke="none"></rect><path d="M10.2 14v-1.3a1.8 1.8 0 0 1 3.6 0V14" stroke="#fff"></path><path d="M5.5 10a9.5 9.5 0 0 1 13 0" opacity=".45"></path></svg><div><div style="font-family:'Bricolage Grotesque';font-size:18px;font-weight:800">Wi-Fi Locked 🔒</div><div style="font:600 12.5px 'Figtree';opacity:.9">Unlocks when all chores are approved</div></div></div>
+          <div style="background:#5A564F;border-radius:18px;padding:14px 16px;color:#fff;display:flex;align-items:center;gap:11px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 19h.01"></path><path d="M4 4l16 16"></path><path d="M5.5 12.3a9.5 9.5 0 0 1 6.5-2.8" opacity=".5"></path></svg><div><div style="font-family:'Bricolage Grotesque';font-size:18px;font-weight:800">Can't check Wi-Fi status</div><div style="font:600 12.5px 'Figtree';opacity:.85">Your last status is still in effect</div></div></div>
+        </div>
+      </div>
+      <div style="width:440px">
+        <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Chore card — states</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:#FBFAF8;border:1px solid #E8E5DF;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px"><span style="font-size:20px">🍽️</span><div style="flex:1;font:700 15px 'Figtree'">Default / to do</div><span style="display:flex;align-items:center;gap:6px;font:700 12.5px 'Figtree';padding:8px 13px;border-radius:99px;background:#5B5BD6;color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="3"></rect><circle cx="12" cy="13.5" r="3.5"></circle></svg>Snap it</span></div>
+          <div style="background:#FBFAF8;border:1px solid #E8E5DF;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px"><span style="font-size:20px">🛏️</span><div style="flex:1"><div style="font:700 15px 'Figtree'">Submitted</div><div style="font:600 12px 'Figtree';color:#6E6A63">Sent 4:32 PM</div></div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#EEEEFB;color:#4646C6">Submitted</span></div>
+          <div style="background:#FDEDEC;border:1px solid #F5C6C0;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px"><span style="font-size:20px">🗑️</span><div style="flex:1"><div style="font:700 15px 'Figtree'">Rejected — with parent note</div><div style="font:600 12px 'Figtree';color:#C0392B">"Bin's still full — one more try!"</div></div><span style="font:700 12px 'Figtree';padding:5px 11px;border-radius:99px;background:#FADBD8;color:#B03A2E">Rejected</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+      <div style="width:300px">
+        <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Photo approval card</div>
+        <div style="background:#fff;border:1px solid #E8E5DF;border-radius:18px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.07)">
+          <div style="height:150px;background:repeating-linear-gradient(45deg,#E8E5DF,#E8E5DF 12px,#EFEDE8 12px,#EFEDE8 24px);display:flex;align-items:center;justify-content:center;position:relative"><span style="font:700 12px 'Figtree';color:#8A857C">Photo</span><span style="position:absolute;top:10px;left:10px;font:700 11px 'Figtree';background:rgba(28,27,26,.72);color:#fff;padding:5px 9px;border-radius:99px">4:32 PM</span></div>
+          <div style="padding:12px 14px;display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:99px;background:#5B5BD6;color:#fff;font:800 13px/30px 'Figtree';text-align:center">D</span><div style="flex:1"><div style="font:800 14px 'Figtree'">Dawson · Feed the dog</div><div style="font:600 11.5px 'Figtree';color:#6E6A63">Required · 1st try</div></div></div>
+          <div style="padding:0 12px 12px;display:flex;gap:8px"><span style="flex:1;text-align:center;border:1.5px solid #EAC7C1;border-radius:12px;padding:10px;font:800 13px 'Figtree';color:#B03A2E">Reject</span><span style="flex:1.4;text-align:center;background:#1F9D5B;border-radius:12px;padding:10px;font:800 13px 'Figtree';color:#fff">Approve</span></div>
+        </div>
+      </div>
+      <div>
+        <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Buttons</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:10px;align-items:center">
+            <span style="background:#5B5BD6;border-radius:14px;padding:13px 26px;font:800 15px 'Figtree';color:#fff">Primary</span>
+            <span style="border:1.5px solid #E0DDD6;background:#fff;border-radius:14px;padding:13px 26px;font:800 15px 'Figtree';color:#3D3A36">Secondary</span>
+            <span style="background:#1F9D5B;border-radius:14px;padding:13px 26px;font:800 15px 'Figtree';color:#fff">Approve</span>
+            <span style="border:2px solid #EAC7C1;background:#fff;border-radius:14px;padding:12px 26px;font:800 15px 'Figtree';color:#B03A2E">Reject</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span style="font:700 13px 'Figtree';color:#177245;border:1.5px solid #BFE3CC;padding:10px 18px;border-radius:12px;background:#fff">Unlock now</span>
+            <span style="font:700 13px 'Figtree';color:#B03A2E;border:1.5px solid #EAC7C1;padding:10px 18px;border-radius:12px;background:#fff">Lock now</span>
+            <span style="display:flex;align-items:center;gap:7px;font:700 14px 'Figtree';padding:10px 16px;border-radius:99px;background:#5B5BD6;color:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><rect x="3" y="7" width="18" height="13" rx="3"></rect><circle cx="12" cy="13.5" r="3.5"></circle></svg>Snap it</span>
+          </div>
+          <div style="font:600 12px 'Figtree';color:#8A857C;margin-top:2px">Min tap target 44px · radius 12–16px · pill = status, rect = action</div>
+        </div>
+        <div style="margin-top:22px">
+          <div style="font:700 12px 'Figtree';letter-spacing:.07em;text-transform:uppercase;color:#8A857C;margin-bottom:12px">Progress ring &amp; streak</div>
+          <div style="display:flex;gap:14px;align-items:center">
+            <svg width="60" height="60" viewBox="0 0 72 72"><circle cx="36" cy="36" r="29" fill="none" stroke="#E8E5DF" stroke-width="9"></circle><circle cx="36" cy="36" r="29" fill="none" stroke="#5B5BD6" stroke-width="9" stroke-linecap="round" stroke-dasharray="182.2" stroke-dashoffset="91.1" transform="rotate(-90 36 36)"></circle><text x="36" y="41" text-anchor="middle" style="font:800 15px 'Figtree';fill:#1C1B1A">2/4</text></svg>
+            <svg width="60" height="60" viewBox="0 0 72 72"><circle cx="36" cy="36" r="29" fill="none" stroke="#E8E5DF" stroke-width="9"></circle><circle cx="36" cy="36" r="29" fill="none" stroke="#1F9D5B" stroke-width="9" stroke-linecap="round" stroke-dasharray="182.2" transform="rotate(-90 36 36)"></circle><text x="36" y="41" text-anchor="middle" style="font:800 15px 'Figtree';fill:#1C1B1A">4/4</text></svg>
+            <span style="background:#fff;border:1px solid #E8E5DF;border-radius:14px;padding:9px 15px;font:800 15px 'Figtree'">🔥 12 <span style="font:700 12px 'Figtree';color:#6E6A63">day streak</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</x-dc>
+</body>
+</html>

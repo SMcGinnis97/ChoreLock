@@ -1,0 +1,131 @@
+// ScreenTimePlugin.swift
+// Capacitor plugin wrapping Apple's Screen Time APIs (FamilyControls / ManagedSettings).
+// Drop into ios/App/App/ after `npx cap add ios`, and add to the App target.
+//
+// Requires:
+//   - Entitlement: com.apple.developer.family-controls (request from Apple, see docs/)
+//   - App Group shared with ChoreLockShield extension: group.app.chorelock
+//   - iOS 16+
+//
+// Authorization mode is `.individual` (app installed on the kid's device). Once
+// authorized, the parent uses pickBlockedApps() to open FamilyActivityPicker; the
+// opaque selection is persisted and applied with setShield().
+
+import Capacitor
+import FamilyControls
+import ManagedSettings
+import SwiftUI
+
+@objc(ScreenTimePlugin)
+public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "ScreenTimePlugin"
+    public let jsName = "ScreenTime"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pickBlockedApps", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getSelectionSummary", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setShield", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
+    ]
+
+    private let store = ManagedSettingsStore(named: .init("chorelock"))
+    private let defaults = UserDefaults(suiteName: "group.app.chorelock")!
+    private let selectionKey = "blockedSelection"
+    private let shieldedKey = "shielded"
+
+    // MARK: Authorization
+    @objc func requestAuthorization(_ call: CAPPluginCall) {
+        Task {
+            do {
+                try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                call.resolve(["status": statusString()])
+            } catch {
+                call.resolve(["status": "denied"])
+            }
+        }
+    }
+
+    private func statusString() -> String {
+        switch AuthorizationCenter.shared.authorizationStatus {
+        case .approved: return "approved"
+        case .denied: return "denied"
+        default: return "notDetermined"
+        }
+    }
+
+    // MARK: Picker
+    @objc func pickBlockedApps(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            var selection = self.loadSelection()
+            let picker = PickerHost(selection: selection) { result in
+                selection = result
+                self.saveSelection(result)
+                self.bridge?.viewController?.dismiss(animated: true)
+                call.resolve(self.summary(result))
+            }
+            let host = UIHostingController(rootView: picker)
+            host.modalPresentationStyle = .pageSheet
+            self.bridge?.viewController?.present(host, animated: true)
+        }
+    }
+
+    @objc func getSelectionSummary(_ call: CAPPluginCall) {
+        call.resolve(summary(loadSelection()))
+    }
+
+    private func summary(_ s: FamilyActivitySelection) -> [String: Int] {
+        ["appCount": s.applicationTokens.count, "categoryCount": s.categoryTokens.count, "webDomainCount": s.webDomainTokens.count]
+    }
+
+    private func loadSelection() -> FamilyActivitySelection {
+        guard let data = defaults.data(forKey: selectionKey),
+              let sel = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else { return FamilyActivitySelection() }
+        return sel
+    }
+
+    private func saveSelection(_ s: FamilyActivitySelection) {
+        if let data = try? JSONEncoder().encode(s) { defaults.set(data, forKey: selectionKey) }
+    }
+
+    // MARK: Shield
+    @objc func setShield(_ call: CAPPluginCall) {
+        let enabled = call.getBool("enabled") ?? false
+        if let t = call.getString("title") { defaults.set(t, forKey: "shieldTitle") }
+        if let s = call.getString("subtitle") { defaults.set(s, forKey: "shieldSubtitle") }
+        applyShield(enabled: enabled)
+        call.resolve()
+    }
+
+    func applyShield(enabled: Bool) {
+        let sel = loadSelection()
+        if enabled {
+            store.shield.applications = sel.applicationTokens.isEmpty ? nil : sel.applicationTokens
+            store.shield.applicationCategories = sel.categoryTokens.isEmpty ? nil : .specific(sel.categoryTokens)
+            store.shield.webDomains = sel.webDomainTokens.isEmpty ? nil : sel.webDomainTokens
+            store.shield.webDomainCategories = sel.categoryTokens.isEmpty ? nil : .specific(sel.categoryTokens)
+        } else {
+            store.clearAllSettings()
+        }
+        defaults.set(enabled, forKey: shieldedKey)
+    }
+
+    @objc func getStatus(_ call: CAPPluginCall) {
+        call.resolve([
+            "authorized": AuthorizationCenter.shared.authorizationStatus == .approved,
+            "shielded": defaults.bool(forKey: shieldedKey),
+        ])
+    }
+}
+
+// SwiftUI host for Apple's FamilyActivityPicker.
+private struct PickerHost: View {
+    @State var selection: FamilyActivitySelection
+    let onDone: (FamilyActivitySelection) -> Void
+    var body: some View {
+        NavigationView {
+            FamilyActivityPicker(selection: $selection)
+                .navigationTitle("Blocked while locked")
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { onDone(selection) } } }
+        }
+    }
+}
