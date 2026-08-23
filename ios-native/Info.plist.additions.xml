@@ -1,0 +1,7 @@
+<!-- Merge into ios/App/App/Info.plist -->
+<key>UIBackgroundModes</key>
+<array>
+  <string>remote-notification</string>
+</array>
+<key>NSCameraUsageDescription</key>
+<string>ChoreLock uses the camera to snap proof that a chore is done.</string>

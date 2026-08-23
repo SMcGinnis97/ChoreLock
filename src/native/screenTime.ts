@@ -22,6 +22,8 @@ export interface ScreenTimePlugin {
   getSelectionSummary(): Promise<{ appCount: number; categoryCount: number; webDomainCount: number }>;
   setShield(opts: { enabled: boolean; title?: string; subtitle?: string }): Promise<void>;
   getStatus(): Promise<{ authorized: boolean; shielded: boolean }>;
+  /** Re-apply the shield locally every day at this time via DeviceActivityMonitor (no network needed). */
+  scheduleDailyReset(opts: { hour: number; minute: number }): Promise<void>;
 }
 
 const ScreenTime = registerPlugin<ScreenTimePlugin>('ScreenTime', {
@@ -34,6 +36,7 @@ const webStub: ScreenTimePlugin = {
   async getSelectionSummary() { return { appCount: 0, categoryCount: 0, webDomainCount: 0 }; },
   async setShield(opts) { console.info('[ScreenTime/web] setShield', opts); },
   async getStatus() { return { authorized: false, shielded: false }; },
+  async scheduleDailyReset(opts) { console.info('[ScreenTime/web] scheduleDailyReset', opts); },
 };
 
 export const isNativeIOS = () => Capacitor.getPlatform() === 'ios';

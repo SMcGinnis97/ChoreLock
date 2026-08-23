@@ -11,6 +11,8 @@ import { Ctx, type Role, type Store } from './store';
 import type { Chore, ChoreInstance, Device, Kid, LockState, Settings } from './types';
 import { applyLockState } from '../native/screenTime';
 import { Capacitor } from '@capacitor/core';
+import { installId, setupPush } from '../native/push';
+import ScreenTime from '../native/screenTime';
 
 const sb = () => supabase!;
 const fmtTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : undefined);
@@ -100,14 +102,20 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
     return () => { sb().removeChannel(chan); document.removeEventListener('visibilitychange', onVis); };
   }, [load]);
 
-  // Register this install as a device for the kid (iOS only).
+  // Register this install as a device for the kid, set up APNs, and hand the reset time to the
+  // native DeviceActivity schedule so the shield re-engages locally even without network.
   useEffect(() => {
     if (role !== 'kid' || !identity.kidId || !Capacitor.isNativePlatform()) return;
-    const key = 'chorelock.installId';
-    const installId = localStorage.getItem(key) ?? crypto.randomUUID().slice(0, 8);
-    localStorage.setItem(key, installId);
-    void sb().from('devices').upsert({ kid_id: identity.kidId, name: `${navigator.platform || 'iOS'} device`, platform: 'ios', identifier: `ios-${installId}`, last_seen: new Date().toISOString() }, { onConflict: 'kid_id,identifier' });
-  }, [role, identity.kidId]);
+    void (async () => {
+      await sb().from('devices').upsert({ kid_id: identity.kidId, name: `${navigator.platform || 'iOS'} device`, platform: 'ios', identifier: `ios-${installId()}`, last_seen: new Date().toISOString() }, { onConflict: 'kid_id,identifier' });
+      await setupPush(identity.kidId!, () => void load());
+    })();
+  }, [role, identity.kidId, load]);
+  useEffect(() => {
+    if (role !== 'kid' || !Capacitor.isNativePlatform() || loading) return;
+    const [h, m] = settings.resetTime.split(':').map(Number);
+    void ScreenTime.scheduleDailyReset({ hour: h, minute: m }).catch(() => {});
+  }, [role, loading, settings.resetTime]);
 
   const store = useMemo<Store>(() => {
     const requiredProgress = (kidId: string) => {

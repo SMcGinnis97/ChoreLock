@@ -97,3 +97,8 @@ revoke execute on all functions in schema public from public, anon;
 alter default privileges in schema public revoke execute on functions from public;
 grant execute on all functions in schema public to authenticated, service_role;
 alter default privileges in schema public grant execute on functions to authenticated, service_role;
+
+-- ---- 0003 (applied 2026-08-23 as push_and_reset) ----
+-- pg_net + pg_cron; private.config(functions_url, service_role_key); private.notify_kids() -> edge fn notify-kid;
+-- triggers on chore_instances (approved/rejected) and kids (override) ; families.last_reset_date;
+-- private.run_resets() scheduled every 5 min as 'chorelock-daily-reset'. See supabase/functions/notify-kid.

@@ -14,6 +14,7 @@
 import Capacitor
 import FamilyControls
 import ManagedSettings
+import DeviceActivity
 import SwiftUI
 
 @objc(ScreenTimePlugin)
@@ -26,6 +27,7 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getSelectionSummary", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setShield", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "scheduleDailyReset", returnType: CAPPluginReturnPromise),
     ]
 
     private let store = ManagedSettingsStore(named: .init("chorelock"))
@@ -109,6 +111,24 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults.set(enabled, forKey: shieldedKey)
     }
 
+    // MARK: Daily reset schedule (runs in ChoreLockMonitor extension, no network required)
+    @objc func scheduleDailyReset(_ call: CAPPluginCall) {
+        let hour = call.getInt("hour") ?? 0
+        let minute = call.getInt("minute") ?? 0
+        defaults.set(hour, forKey: "resetHour"); defaults.set(minute, forKey: "resetMinute")
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([.dailyReset])
+        // A one-minute window starting at reset time; intervalDidStart fires -> extension re-applies shield.
+        let end = DateComponents(hour: (minute >= 59) ? (hour + 1) % 24 : hour, minute: (minute + 1) % 60)
+        let schedule = DeviceActivitySchedule(intervalStart: DateComponents(hour: hour, minute: minute), intervalEnd: end, repeats: true)
+        do {
+            try center.startMonitoring(.dailyReset, during: schedule)
+            call.resolve()
+        } catch {
+            call.reject("startMonitoring failed: \(error.localizedDescription)")
+        }
+    }
+
     @objc func getStatus(_ call: CAPPluginCall) {
         call.resolve([
             "authorized": AuthorizationCenter.shared.authorizationStatus == .approved,
@@ -128,4 +148,8 @@ private struct PickerHost: View {
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { onDone(selection) } } }
         }
     }
+}
+
+extension DeviceActivityName {
+    static let dailyReset = Self("chorelock.dailyReset")
 }
