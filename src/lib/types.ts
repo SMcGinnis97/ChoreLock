@@ -10,6 +10,7 @@ export interface Kid {
   lockState: LockState;
   streakDays: number;
   override: 'lock' | 'unlock' | null; // parent manual override for today
+  joinCode?: string; // shown to parent for enrolling kid devices
 }
 
 /** A chore definition (what repeats). */

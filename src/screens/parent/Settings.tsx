@@ -10,6 +10,10 @@ export default function Settings() {
   const [sel, setSel] = useState<{ appCount: number; categoryCount: number; webDomainCount: number } | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const [devName, setDevName] = useState('');
+  const [addingKid, setAddingKid] = useState(false);
+  const [kidName, setKidName] = useState('');
+  const [kidAge, setKidAge] = useState('');
+  const COLORS = ['#0D9488', '#B45309', '#5B5BD6', '#BE185D', '#1D4ED8', '#15803D'];
   const [devMac, setDevMac] = useState('');
 
   useEffect(() => { ScreenTime.getStatus().then(setSt); ScreenTime.getSelectionSummary().then(setSel); }, []);
@@ -36,6 +40,18 @@ export default function Settings() {
           <div className="spacer"><div className="title">{routerOk ? 'Router connected' : 'Router (optional)'}</div><div className="sub">{s.settings.routerModel ?? 'For consoles, TVs & non-Apple devices'}</div></div>
           <span className={`dot`} style={{ color: routerOk ? 'var(--ok)' : 'var(--ink-3)' }} />
         </div>
+      </div>
+
+      <div className="section-label">Kids</div>
+      <div className="group">
+        {s.kids.map((k) => (
+          <div key={k.id} className="group-row">
+            <Avatar kid={k} />
+            <div className="spacer"><div className="title">{k.name}</div><div className="sub">Age {k.age} · 🔥 {k.streakDays} day streak</div></div>
+            {k.joinCode && <div style={{ textAlign: 'right' }}><div className="mono" style={{ fontSize: 16, letterSpacing: '.15em', color: 'var(--accent-deep)', fontWeight: 700 }}>{k.joinCode}</div><div className="sub">join code</div></div>}
+          </div>
+        ))}
+        {s.addKid && <button className="group-row" style={{ color: 'var(--accent-deep)', fontWeight: 700 }} onClick={() => { setAddingKid(true); setKidName(''); setKidAge(''); }}>+ Add a kid</button>}
       </div>
 
       <div className="section-label">Kid devices</div>
@@ -67,6 +83,22 @@ export default function Settings() {
         </div>
       </div>
       <p className="hint">Resets at {fmtTime(s.settings.resetTime)}</p>
+      {s.signOut && <button className="btn btn--outline" onClick={() => s.signOut!()}>Sign out</button>}
+
+      {addingKid && (
+        <div className="sheet-backdrop" onClick={() => setAddingKid(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="handle" />
+            <h2 style={{ fontSize: 22 }}>Add a kid</h2>
+            <input className="field" placeholder="Name" value={kidName} onChange={(e) => setKidName(e.target.value)} autoFocus />
+            <input className="field" type="number" inputMode="numeric" placeholder="Age" value={kidAge} onChange={(e) => setKidAge(e.target.value)} />
+            <div className="row">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setAddingKid(false)}>Cancel</button>
+              <button className="btn btn--primary" style={{ flex: 1.4, width: 'auto' }} disabled={!kidName} onClick={async () => { await s.addKid!({ name: kidName, age: Number(kidAge) || 0, avatarColor: COLORS[s.kids.length % COLORS.length] }); setAddingKid(false); }}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {adding && (
         <div className="sheet-backdrop" onClick={() => setAdding(null)}>

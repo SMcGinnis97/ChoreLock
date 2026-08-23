@@ -49,7 +49,7 @@ const SETTINGS: Settings = { resetTime: '00:00', autoApprove: false, routerStatu
 
 export type Role = 'parent' | 'kid';
 
-interface Store {
+export interface Store {
   role: Role; setRole: (r: Role) => void;
   currentKidId: string; setCurrentKidId: (id: string) => void;
   kids: Kid[]; chores: Chore[]; instances: ChoreInstance[]; devices: Device[]; settings: Settings;
@@ -65,11 +65,15 @@ interface Store {
   saveChore: (chore: Omit<Chore, 'id'> & { id?: string }) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   addDevice: (dev: Omit<Device, 'id' | 'blocked'>) => void;
+  addKid?: (kid: { name: string; age: number; avatarColor: string }) => Promise<void>;
+  signOut?: () => Promise<void>;
+  loading?: boolean;
+  error?: string | null;
 }
 
-const Ctx = createContext<Store | null>(null);
+export const Ctx = createContext<Store | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+export function MockStoreProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>('kid');
   const [currentKidId, setCurrentKidId] = useState('k3');
   const [kids, setKids] = useState(KIDS);
