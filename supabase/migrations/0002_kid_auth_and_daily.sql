@@ -16,7 +16,7 @@ create or replace function chore_family_id(cid uuid) returns uuid language sql s
   $$ select family_id from chores where id = cid $$;
 create or replace function kid_family_id(kid uuid) returns uuid language sql stable security definer set search_path = public as
   $$ select family_id from kids where id = kid $$;
-create or replace function gen_join_code() returns text language sql volatile set search_path = public as
+create or replace function gen_join_code() returns text language sql volatile set search_path = public, extensions as
   $$ select upper(substr(replace(replace(encode(gen_random_bytes(6),'base64'),'/',''),'+',''),1,6)) $$;
 alter table kids alter column join_code set default gen_join_code();
 
