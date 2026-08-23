@@ -43,6 +43,8 @@ workflows:
     name: iOS dev build (direct install)
     max_build_duration: 60
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Codemagic CI
     environment:
       <<: *env
     scripts:
@@ -65,6 +67,8 @@ workflows:
     name: iOS TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Codemagic CI
     environment:
       <<: *env
     scripts:
