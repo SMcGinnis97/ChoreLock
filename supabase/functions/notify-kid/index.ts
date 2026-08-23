@@ -49,7 +49,11 @@ async function send(token: string, payload: Record<string, unknown>, silent: boo
 }
 
 Deno.serve(async (req) => {
-  if (req.headers.get('authorization') !== `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`) return new Response('unauthorized', { status: 401 });
+  // Gateway (verify_jwt) already validated the signature; require the service_role claim.
+  const tok = (req.headers.get('authorization') ?? '').replace(/^Bearer /i, '');
+  let role = '';
+  try { role = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role; } catch { /* fallthrough */ }
+  if (role !== 'service_role') return new Response('unauthorized', { status: 401 });
   const { kid_ids, kind, chore, reason } = await req.json();
   if (!Array.isArray(kid_ids) || kid_ids.length === 0) return Response.json({ sent: 0 });
 
