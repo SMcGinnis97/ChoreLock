@@ -1,7 +1,6 @@
 # ChoreLock iOS builds via Codemagic (no Mac required).
 #
-# Codemagic setup (once): Teams → Integrations → App Store Connect API key (group "app_store_credentials"
-# must expose APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY).
+# Codemagic setup (once): Teams → Integrations → App Store Connect API key named "Codemagic CI"
 # Add a variable group "chorelock" with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
 #
 # ios-dev:        development-signed IPA for direct install on registered devices (works with the
@@ -10,7 +9,7 @@
 
 definitions:
   env: &env
-    groups: [app_store_credentials, chorelock]
+    groups: [chorelock]
     vars:
       BUNDLE_ID: app.chorelock
       XCODE_PROJECT: ios/App/App.xcodeproj
