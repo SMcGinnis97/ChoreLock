@@ -14,17 +14,21 @@ layer is a small Swift plugin plus two app extensions in `ios-native/`.
 
 All four share App Group **`group.app.chorelock`** and the Family Controls entitlement.
 
-## One-time Xcode project setup (done once on a Codemagic build or any Mac)
+## Project assembly (automated)
 
-1. `npx cap add ios` and `npx cap sync ios`.
-2. Copy `ios-native/ScreenTimePlugin.swift` into `ios/App/App/` and add it to the App target.
-3. Register the plugin in `ios/App/App/AppDelegate.swift` — Capacitor 6+ auto-discovers `CAPBridgedPlugin` classes; nothing extra needed. For older versions add `bridge.registerPluginInstance(ScreenTimePlugin())`.
-4. File → New → Target → **Shield Configuration Extension**, name `ChoreLockShield`, bundle ID `app.chorelock.ChoreLockShield`. Replace the generated Swift file with ours.
-5. File → New → Target → **Shield Action Extension**, name `ChoreLockShieldAction`. Replace the generated file.
-6. File → New → Target → **Device Activity Monitor Extension**, name `ChoreLockMonitor`, bundle ID `app.chorelock.ChoreLockMonitor`. Replace the generated file.
-7. App target only: add **Push Notifications** capability and **Background Modes → Remote notifications**; merge `ios-native/Info.plist.additions.xml` into Info.plist.
-8. Signing & Capabilities on all four targets: add **App Groups** (`group.app.chorelock`) and **Family Controls**.
-9. Commit the `ios/` directory after this (remove `ios` from `.gitignore`) so Codemagic doesn't need to redo it.
+`ios/` is **not** committed. Every Codemagic build regenerates it:
+`npx cap add ios` → `npx cap sync ios` → `ruby scripts/ios-setup.rb` (xcodeproj gem), which adds the plugin,
+the three extension targets, entitlements, Info.plist keys, team and deployment target. Nothing to do in Xcode.
+
+## Apple portal prerequisites (once)
+
+App IDs, all with **App Groups** (`group.app.chorelock`) + **Family Controls (Development)**:
+- `app.chorelock` — also **Push Notifications** and **Sign In with Apple**
+- `app.chorelock.ChoreLockShield`
+- `app.chorelock.ChoreLockShieldAction`
+- `app.chorelock.ChoreLockMonitor`
+
+For the `ios-dev` workflow, register each test iPhone's UDID under **Devices** (Settings → General → About → tap serial… or via Finder/iTunes), then the build's install link works on it.
 
 ## Runtime flow on a kid device
 

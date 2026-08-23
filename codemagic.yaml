@@ -1,41 +1,86 @@
-# ChoreLock iOS build via Codemagic (no Mac required).
-# Secrets to add in Codemagic UI: app_store_credentials group (APP_STORE_CONNECT_*), certificates.
+# ChoreLock iOS builds via Codemagic (no Mac required).
+#
+# Codemagic setup (once): Teams → Integrations → App Store Connect API key (group "app_store_credentials"
+# must expose APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY).
+# Add a variable group "chorelock" with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+#
+# ios-dev:        development-signed IPA for direct install on registered devices (works with the
+#                 Family Controls *development* entitlement — use this until Apple approves distribution).
+# ios-testflight: App Store signing → TestFlight (requires Family Controls distribution approval).
+
+definitions:
+  env: &env
+    groups: [app_store_credentials, chorelock]
+    vars:
+      BUNDLE_ID: app.chorelock
+      XCODE_PROJECT: ios/App/App.xcodeproj
+      XCODE_SCHEME: App
+      DEVELOPMENT_TEAM: XTDR638PA7
+      MARKETING_VERSION: 0.1.0
+    node: 24
+    xcode: latest
+  scripts:
+    - &web
+      name: Install & build web
+      script: npm ci && npm run build
+    - &ios_project
+      name: Generate iOS project + native targets
+      script: |
+        rm -rf ios
+        npx cap add ios
+        npx cap sync ios
+        gem install xcodeproj plist --no-document
+        ruby scripts/ios-setup.rb
+    - &version
+      name: Stamp build number
+      script: cd ios/App && agvtool new-version -all "$BUILD_NUMBER" || true
+    - &build
+      name: Build IPA
+      script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+
 workflows:
+  ios-dev:
+    name: iOS dev build (direct install)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      <<: *env
+    scripts:
+      - *web
+      - *ios_project
+      - name: Signing (development)
+        script: |
+          for id in app.chorelock app.chorelock.ChoreLockShield app.chorelock.ChoreLockShieldAction app.chorelock.ChoreLockMonitor; do
+            app-store-connect fetch-signing-files "$id" --type IOS_APP_DEVELOPMENT --create
+          done
+          keychain initialize && keychain add-certificates && xcode-project use-profiles
+      - *version
+      - *build
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - ios/App/App.xcodeproj/project.pbxproj
+
   ios-testflight:
     name: iOS TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      groups: [app_store_credentials]
-      vars:
-        BUNDLE_ID: app.chorelock
-        XCODE_WORKSPACE: ios/App/App.xcworkspace
-        XCODE_SCHEME: App
-      node: 24
-      xcode: latest
-      cocoapods: default
+      <<: *env
     scripts:
-      - name: Install & build web
-        script: npm ci && npm run build
-      - name: Add iOS platform & sync
+      - *web
+      - *ios_project
+      - name: Signing (App Store)
         script: |
-          npx cap add ios || true
-          npx cap sync ios
-          # Copy native plugin + extension targets into the generated project.
-          cp ios-native/ScreenTimePlugin.swift ios/App/App/
-          cp ios-native/App.entitlements ios/App/App/App.entitlements
-          # NOTE: the ChoreLockShield extension target must be added to the Xcode project once
-          # (see docs/IOS_SETUP.md); after that `cap sync` preserves it.
-      - name: Set up code signing
-        script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-          app-store-connect fetch-signing-files "$BUNDLE_ID.ChoreLockShield" --type IOS_APP_STORE --create
+          for id in app.chorelock app.chorelock.ChoreLockShield app.chorelock.ChoreLockShieldAction app.chorelock.ChoreLockMonitor; do
+            app-store-connect fetch-signing-files "$id" --type IOS_APP_STORE --create
+          done
           keychain initialize && keychain add-certificates && xcode-project use-profiles
-      - name: Build IPA
-        script: |
-          cd ios/App && agvtool new-version -all $BUILD_NUMBER && cd ../..
-          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
-    artifacts: [build/ios/ipa/*.ipa, /tmp/xcodebuild_logs/*.log]
+      - *version
+      - *build
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
