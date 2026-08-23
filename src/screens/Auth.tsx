@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { signInWithApple } from '../lib/appleAuth';
 
-type Mode = 'pick' | 'parent-in' | 'parent-up' | 'kid';
+type Mode = 'pick' | 'parent-in' | 'parent-up' | 'kid' | 'setup';
 
 /** Entry for live mode: parent email/password, or kid join code (anonymous session). */
-export default function Auth({ onDone }: { onDone: () => Promise<void> }) {
-  const [mode, setMode] = useState<Mode>('pick');
+export default function Auth({ onDone, needsFamily }: { onDone: () => Promise<void>; needsFamily?: boolean }) {
+  const [mode, setMode] = useState<Mode>(needsFamily ? 'setup' : 'pick');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [family, setFamily] = useState('');
@@ -25,6 +26,11 @@ export default function Auth({ onDone }: { onDone: () => Promise<void> }) {
     const { data, error } = await sb.auth.signUp({ email, password: pw });
     if (error) throw error;
     if (!data.session) throw new Error('Check your email to confirm, then sign in.');
+    const { error: fe } = await sb.rpc('create_family', { family_name: family || `${name}'s family`, parent_name: name });
+    if (fe) throw fe;
+  });
+  const apple = () => run(async () => { await signInWithApple(); });
+  const finishSetup = () => run(async () => {
     const { error: fe } = await sb.rpc('create_family', { family_name: family || `${name}'s family`, parent_name: name });
     if (fe) throw fe;
   });
@@ -52,6 +58,19 @@ export default function Auth({ onDone }: { onDone: () => Promise<void> }) {
       </div>
     );
 
+  if (mode === 'setup')
+    return (
+      <div className="screen screen--center" style={{ gap: 12 }}>
+        {Head}
+        <div className="section-label">Almost there — name your family</div>
+        <input className="field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <input className="field" placeholder="Family name (optional)" value={family} onChange={(e) => setFamily(e.target.value)} />
+        {err && <p className="chore-sub chore-sub--reject">{err}</p>}
+        <button className="btn btn--primary" disabled={busy || !name} onClick={finishSetup}>{busy ? 'One sec…' : 'Create family'}</button>
+        <button className="btn btn--text" onClick={() => run(async () => { await sb.auth.signOut(); })}>Sign out</button>
+      </div>
+    );
+
   if (mode === 'kid')
     return (
       <div className="screen screen--center" style={{ gap: 14 }}>
@@ -76,6 +95,7 @@ export default function Auth({ onDone }: { onDone: () => Promise<void> }) {
       <input className="field" type="password" placeholder="Password" autoComplete={up ? 'new-password' : 'current-password'} value={pw} onChange={(e) => setPw(e.target.value)} />
       {err && <p className="chore-sub chore-sub--reject">{err}</p>}
       <button className="btn btn--primary" disabled={busy || !email || pw.length < 6 || (up && !name)} onClick={up ? signUp : signIn}>{busy ? 'One sec…' : up ? 'Create family' : 'Sign in'}</button>
+      <button className="btn btn--lg" style={{ background: 'var(--ink)', color: 'var(--bg)', width: '100%' }} disabled={busy} onClick={apple}> Sign in with Apple</button>
       <button className="btn btn--text" onClick={() => setMode(up ? 'parent-in' : 'parent-up')}>{up ? 'Already have an account? Sign in' : 'New here? Create a family'}</button>
       <button className="btn btn--text" onClick={() => setMode('pick')}>Back</button>
     </div>

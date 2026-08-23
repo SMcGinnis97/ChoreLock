@@ -77,7 +77,7 @@ const Splash = () => (
 function LiveApp() {
   const id = useIdentity();
   if (!id.ready) return <Splash />;
-  if (!id.role) return <Auth onDone={id.refresh} />;
+  if (!id.role) return <Auth onDone={id.refresh} needsFamily={!!id.session && !id.session.user.is_anonymous} />;
   return (
     <LiveStoreProvider identity={id}>
       <AppRoutes home={id.role === 'parent' ? '/parent' : '/kid'} />
