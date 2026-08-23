@@ -1,7 +1,8 @@
 # ChoreLock iOS builds via Codemagic (no Mac required).
 #
 # Codemagic setup (once): Teams → Integrations → App Store Connect API key named "Codemagic CI"
-# Add a variable group "chorelock" with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+# Variable groups: "chorelock" (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) and "ios_signing" (CERTIFICATE_PRIVATE_KEY, secure —
+# same RSA key as the SpringFed app so the one distribution certificate is shared).
 #
 # ios-dev:        development-signed IPA for direct install on registered devices (works with the
 #                 Family Controls *development* entitlement — use this until Apple approves distribution).
@@ -9,7 +10,7 @@
 
 definitions:
   env: &env
-    groups: [chorelock]
+    groups: [chorelock, ios_signing]
     vars:
       BUNDLE_ID: app.chorelock
       XCODE_PROJECT: ios/App/App.xcodeproj
