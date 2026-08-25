@@ -3,6 +3,7 @@ export type LockState = 'locked' | 'unlocked' | 'unknown';
 export type Recurrence = 'daily' | 'weekdays' | 'custom';
 export type Rotation = 'none' | 'daily' | 'weekly' | 'every_other_day' | 'after_done';
 export type QuestStatus = 'open' | 'claimed' | 'submitted' | 'approved' | 'rejected';
+export type ProofType = 'photo' | 'video' | 'photo_video';
 
 export interface Kid {
   id: string;
@@ -29,7 +30,8 @@ export interface Chore {
   rotation: Rotation; // how the chore moves between assigned kids
   dueTime?: string; // "HH:MM" — only blocks Wi-Fi after this time; unset = blocks all day
   required: boolean; // required for unlock; false = bonus
-  photoProof: boolean;
+  photoProof: boolean; // proof needed at all
+  proofType: ProofType; // what kind(s) of live proof
 }
 
 /** Today's instance of a chore for one kid. */
@@ -41,7 +43,7 @@ export interface ChoreInstance {
   status: ChoreStatus;
   attempt: number;
   photoUrl?: string;
-  isVideo?: boolean; // photoUrl points at a short video clip
+  videoUrl?: string; // short clip proof (chore may require photo, video, or both)
   note?: string;
   submittedAt?: string;
   rejectionReason?: string;
@@ -61,6 +63,12 @@ export interface SideQuest {
   proofNote?: string;
   rejectionReason?: string;
   submittedAt?: string;
+}
+
+/** What a chore submission carries — one or both, per the chore's proofType. */
+export interface ProofBundle {
+  photo?: ProofMedia;
+  video?: ProofMedia;
 }
 
 /** Captured proof ready to upload (live photo or ≤10s video). */
@@ -87,6 +95,9 @@ export interface Device {
   identifier: string; // iOS: install id; router-managed: MAC
   lastSeen?: string;
   blocked: boolean;
+  override?: 'lock' | 'unlock' | null; // router devices: force off/on regardless of chores
+  scheduleStart?: string; // "HH:MM" daily allowed window (router devices)
+  scheduleEnd?: string;
 }
 
 export interface Settings {

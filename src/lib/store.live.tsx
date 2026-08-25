@@ -90,11 +90,11 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       const todays = (inst.data ?? []).filter((i) => i.date === todayStr);
 
       setSettings({ resetTime: fam.data?.reset_time?.slice(0, 5) ?? '00:00', autoApprove: fam.data?.auto_approve ?? false, routerStatus: 'none', parentCode: invite.data?.code ?? undefined });
-      setChores((ch.data ?? []).map((c) => ({ id: c.id, name: c.name, emoji: c.emoji, instruction: c.instruction ?? undefined, recurrence: c.recurrence, days: c.days ?? [], rotation: c.rotation ?? 'none', dueTime: c.due_time ? c.due_time.slice(0, 5) : undefined, required: c.required, photoProof: c.photo_proof, kidIds: (asg.data ?? []).filter((a) => a.chore_id === c.id).map((a) => a.kid_id) })));
+      setChores((ch.data ?? []).map((c) => ({ id: c.id, name: c.name, emoji: c.emoji, instruction: c.instruction ?? undefined, recurrence: c.recurrence, days: c.days ?? [], rotation: c.rotation ?? 'none', dueTime: c.due_time ? c.due_time.slice(0, 5) : undefined, required: c.required, photoProof: c.photo_proof, proofType: c.proof_type ?? 'photo', kidIds: (asg.data ?? []).filter((a) => a.chore_id === c.id).map((a) => a.kid_id) })));
       setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, joinCode: k.join_code ?? undefined })));
       setInstances(await Promise.all(todays.map(async (i) => ({
         id: i.id, choreId: i.chore_id, kidId: i.kid_id, date: i.date, status: i.status, attempt: i.attempt,
-        photoUrl: await signed(i.photo_path), isVideo: isVideoPath(i.photo_path),
+        photoUrl: await signed(i.photo_path), videoUrl: await signed(i.video_path),
         note: i.note ?? undefined, submittedAt: fmtTime(i.submitted_at), rejectionReason: i.rejection_reason ?? undefined,
       }))));
       setQuests(await Promise.all((qs.data ?? []).map(async (q) => ({
@@ -103,7 +103,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         proofUrl: await signed(q.proof_path), proofIsVideo: isVideoPath(q.proof_path),
         proofNote: q.proof_note ?? undefined, rejectionReason: q.rejection_reason ?? undefined, submittedAt: fmtTime(q.submitted_at),
       }))));
-      setDevices((dev.data ?? []).map((d) => ({ id: d.id, kidId: d.kid_id, name: d.name, platform: d.platform, identifier: d.identifier, lastSeen: d.last_seen ?? undefined, blocked: false })));
+      setDevices((dev.data ?? []).map((d) => ({ id: d.id, kidId: d.kid_id, name: d.name, platform: d.platform, identifier: d.identifier, lastSeen: d.last_seen ?? undefined, blocked: false, override: d.override ?? null, scheduleStart: d.schedule_start ? d.schedule_start.slice(0, 5) : undefined, scheduleEnd: d.schedule_end ? d.schedule_end.slice(0, 5) : undefined })));
       setParents((pars.data ?? []).map((p: { user_id: string; display_name: string | null; email: string | null }) => ({ userId: p.user_id, name: p.display_name ?? undefined, email: p.email ?? undefined, isMe: p.user_id === identity.session?.user.id })));
     } catch (e) {
       setError((e as Error).message);
@@ -168,14 +168,18 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       kids, chores, instances, quests, devices: devicesWithState, settings, parents, loading, error,
       kidLockState, requiredProgress,
       pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length,
-      submit: async (id, media, note) => {
+      submit: async (id, proof, note) => {
         const inst = instances.find((i) => i.id === id)!;
         const kid = kids.find((k) => k.id === inst.kidId)!;
-        const path = `${identity.familyId ?? 'f'}/${kid.id}/${inst.date}/${inst.choreId}-${inst.attempt}.${media.ext}`;
-        try { await uploadProof(path, media); } catch (e) { setError((e as Error).message); return; }
-        setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'submitted', photoUrl: media.previewUrl, isVideo: media.isVideo, note } : i)));
+        const base = `${identity.familyId ?? 'f'}/${kid.id}/${inst.date}/${inst.choreId}-${inst.attempt}`;
+        let photoPath: string | null = null, videoPath: string | null = null;
+        try {
+          if (proof.photo) photoPath = await uploadProof(`${base}.${proof.photo.ext}`, proof.photo);
+          if (proof.video) videoPath = await uploadProof(`${base}-v.${proof.video.ext}`, proof.video);
+        } catch (e) { setError((e as Error).message); return; }
+        setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'submitted', photoUrl: proof.photo?.previewUrl, videoUrl: proof.video?.previewUrl, note } : i)));
         // Always 'submitted' — a server trigger auto-approves first attempts when the family setting is on.
-        await sb().from('chore_instances').update({ status: 'submitted', photo_path: path, note: note ?? null, submitted_at: new Date().toISOString() }).eq('id', id);
+        await sb().from('chore_instances').update({ status: 'submitted', ...(photoPath && { photo_path: photoPath }), ...(videoPath && { video_path: videoPath }), note: note ?? null, submitted_at: new Date().toISOString() }).eq('id', id);
       },
       approve: async (id) => {
         setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'approved', rejectionReason: undefined } : i)));
@@ -185,6 +189,10 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'rejected', rejectionReason: reason, attempt: i.attempt + 1 } : i)));
         const inst = instances.find((i) => i.id === id)!;
         await sb().from('chore_instances').update({ status: 'rejected', rejection_reason: reason, attempt: inst.attempt + 1, reviewed_at: new Date().toISOString(), reviewed_by: identity.session?.user.id }).eq('id', id);
+      },
+      reopen: async (id) => {
+        setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'todo', rejectionReason: undefined } : i)));
+        await sb().from('chore_instances').update({ status: 'todo', rejection_reason: null, reviewed_at: new Date().toISOString(), reviewed_by: identity.session?.user.id }).eq('id', id);
       },
       override: async (kidId, mode) => {
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, override: mode } : k)));
@@ -239,6 +247,18 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       addDevice: async (dev) => {
         await sb().from('devices').insert({ kid_id: dev.kidId, name: dev.name, platform: dev.platform, identifier: dev.identifier });
         await load();
+      },
+      updateDevice: async (id, patch) => {
+        setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv)));
+        await sb().from('devices').update({
+          ...(patch.override !== undefined && { override: patch.override }),
+          ...(patch.scheduleStart !== undefined && { schedule_start: patch.scheduleStart || null }),
+          ...(patch.scheduleEnd !== undefined && { schedule_end: patch.scheduleEnd || null }),
+        }).eq('id', id);
+      },
+      removeDevice: async (id) => {
+        setDevices((cur) => cur.filter((dv) => dv.id !== id));
+        await sb().from('devices').delete().eq('id', id);
       },
       addKid: async (kid) => {
         await sb().from('kids').insert({ family_id: identity.familyId, name: kid.name, age: kid.age, avatar_color: kid.avatarColor });

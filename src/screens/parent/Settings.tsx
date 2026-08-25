@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../../lib/store';
 import { Avatar, Icon, Switch } from '../../components/ui';
 import ScreenTime, { isNativeIOS } from '../../native/screenTime';
+import type { Device } from '../../lib/types';
 import { fmtTime } from './Dashboard';
 
 export default function Settings() {
@@ -80,10 +81,29 @@ export default function Settings() {
         {s.kids.map((k) => (
           <div key={k.id}>
             {s.devices.filter((d) => d.kidId === k.id).map((d) => (
-              <div key={d.id} className="group-row">
-                <Avatar kid={k} size="sm" />
-                <div className="spacer"><div className="title">{d.name}</div><div className="mono">{d.platform === 'ios' ? `Screen Time · ${d.identifier}` : d.identifier}</div></div>
-                <span className={`chip ${d.blocked ? 'chip--blocked' : 'chip--online'}`}>{d.blocked ? 'Blocked' : 'Online'}</span>
+              <div key={d.id} className="group-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                <div className="row">
+                  <Avatar kid={k} size="sm" />
+                  <div className="spacer"><div className="title">{d.name}</div><div className="mono">{d.platform === 'ios' ? `Screen Time · ${d.identifier}` : d.identifier}</div></div>
+                  <span className={`chip ${d.blocked ? 'chip--blocked' : 'chip--online'}`}>{d.override === 'unlock' ? 'Forced on' : d.override === 'lock' ? 'Forced off' : d.blocked ? 'Blocked' : 'Online'}</span>
+                  {s.removeDevice && d.platform === 'other' && <button className="icon-btn" style={{ background: 'var(--danger-tint)', color: 'var(--danger)', width: 30, height: 30 }} aria-label={`Remove ${d.name}`} onClick={() => { if (confirm(`Remove ${d.name}?`)) void s.removeDevice!(d.id); }}><Icon.X size={16} /></button>}
+                </div>
+                {d.platform === 'other' && (
+                  <>
+                    <div className="seg">
+                      {([[null, 'Follow chores'], ['unlock', 'Force on'], ['lock', 'Force off']] as [Device['override'], string][]).map(([v, label]) => (
+                        <button key={String(v)} className={(d.override ?? null) === v ? 'active' : ''} onClick={() => s.updateDevice(d.id, { override: v })}>{label}</button>
+                      ))}
+                    </div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <span className="sub" style={{ flexShrink: 0 }}>Allowed daily</span>
+                      <input className="field" type="time" style={{ padding: 8 }} value={d.scheduleStart ?? ''} onChange={(e) => s.updateDevice(d.id, { override: d.override, scheduleStart: e.target.value })} />
+                      <span className="sub">to</span>
+                      <input className="field" type="time" style={{ padding: 8 }} value={d.scheduleEnd ?? ''} onChange={(e) => s.updateDevice(d.id, { override: d.override, scheduleEnd: e.target.value })} />
+                      {(d.scheduleStart || d.scheduleEnd) && <button className="btn btn--text" style={{ minHeight: 0 }} onClick={() => s.updateDevice(d.id, { override: d.override, scheduleStart: '', scheduleEnd: '' })}>Clear</button>}
+                    </div>
+                  </>
+                )}
               </div>
             ))}
             <button className="group-row" style={{ color: 'var(--accent-deep)', fontWeight: 700 }} onClick={() => { setAdding(k.id); setDevName(''); setDevMac(''); }}>+ Add a device for {k.name}</button>

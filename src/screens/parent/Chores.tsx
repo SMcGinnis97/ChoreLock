@@ -11,7 +11,7 @@ const ROTATIONS: { value: Rotation; label: string; sub: string }[] = [
   { value: 'weekly', label: 'Weekly', sub: 'Next kid each week' },
   { value: 'after_done', label: 'After done', sub: 'Next kid after each approval' },
 ];
-const blank = (): Omit<Chore, 'id'> => ({ name: '', emoji: '🧹', instruction: '', kidIds: [], recurrence: 'daily', days: [], rotation: 'none', required: true, photoProof: true });
+const blank = (): Omit<Chore, 'id'> => ({ name: '', emoji: '🧹', instruction: '', kidIds: [], recurrence: 'daily', days: [], rotation: 'none', required: true, photoProof: true, proofType: 'photo' });
 
 /** Keep only the final emoji (grapheme cluster) typed — never split surrogate pairs. */
 const lastGrapheme = (v: string) => {
@@ -122,7 +122,17 @@ function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, '
 
       <div className="group">
         <div className="group-row"><div className="spacer"><div className="title">Required for Wi-Fi unlock</div><div className="sub">Off = bonus chore. Bonus chores never block Wi-Fi.</div></div><Switch on={value.required} onChange={(v) => set({ required: v })} /></div>
-        <div className="group-row"><div className="spacer"><div className="title">Photo proof</div><div className="sub">Kid must snap a live photo to submit.</div></div><Switch on={value.photoProof} onChange={(v) => set({ photoProof: v })} /></div>
+        <div className="group-row"><div className="spacer"><div className="title">Proof required</div><div className="sub">Kid must capture live proof in the app to submit.</div></div><Switch on={value.photoProof} onChange={(v) => set({ photoProof: v })} /></div>
+        {value.photoProof && (
+          <div className="group-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+            <div className="seg">
+              {([['photo', '📷 Photo'], ['video', '🎥 Video'], ['photo_video', 'Both']] as [Chore['proofType'], string][]).map(([v, label]) => (
+                <button key={v} className={value.proofType === v ? 'active' : ''} onClick={() => set({ proofType: v })}>{label}</button>
+              ))}
+            </div>
+            <div className="sub">{value.proofType === 'photo' ? 'A live photo.' : value.proofType === 'video' ? 'A live video, 10 seconds max.' : 'Both a live photo and a 10-second video.'}</div>
+          </div>
+        )}
       </div>
 
       <div className="spacer" />

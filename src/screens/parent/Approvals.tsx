@@ -10,7 +10,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   const s = useStore();
   const queue = s.instances.filter((i) => i.status === 'submitted');
   const questQueue = s.quests.filter((q) => q.status === 'submitted');
-  const approvedToday = s.instances.filter((i) => i.status === 'approved' && i.photoUrl);
+  const approvedToday = s.instances.filter((i) => i.status === 'approved' && (i.photoUrl || i.videoUrl));
   const [rejecting, setRejecting] = useState<Target>(null);
   const [reason, setReason] = useState<string>('');
   const [noteText, setNoteText] = useState('');
@@ -87,9 +87,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
           return (
             <div key={i.id} className="card row" style={{ padding: 10 }}>
               <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--track)' }}>
-                {i.photoUrl && (i.isVideo
-                  ? <video src={i.photoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />)}
+                {i.photoUrl ? <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : i.videoUrl ? <video src={i.videoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
               </div>
               <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} · {c.name}</div><div className="kid-sub">{i.submittedAt ?? 'today'}{s.settings.autoApprove && i.attempt === 1 ? ' · auto-approved' : ''}</div></div>
               <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => setRejecting({ kind: 'chore', id: i.id })}>Reject</button>
@@ -128,11 +126,10 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
       <div className="row row--between"><h1>Approvals</h1><span className="chip chip--todo">1 of {queue.length}</span></div>
       <div className="approval-card" style={{ transform: `translateX(${dx}px) rotate(${dx / 30}deg)`, transition: startX.current === null ? 'transform .15s' : 'none', touchAction: 'pan-y' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
         <div className="approval-photo">
-          {current.photoUrl && (current.isVideo
-            ? <video src={current.photoUrl} controls autoPlay muted loop playsInline draggable={false} />
-            : <img src={current.photoUrl} alt="" draggable={false} />)}
+          {current.photoUrl ? <img src={current.photoUrl} alt="" draggable={false} /> : current.videoUrl ? <video src={current.videoUrl} controls autoPlay muted loop playsInline draggable={false} /> : null}
           <span className="timestamp">{current.submittedAt}</span>
         </div>
+        {current.photoUrl && current.videoUrl && <video src={current.videoUrl} controls muted playsInline style={{ width: '100%', maxHeight: 200, background: '#000' }} />}
         <div className="approval-body">
           <div className="row"><Avatar kid={kid} /><div><div className="approval-title">{kid.name} · {chore.name}</div><div className="kid-sub">{chore.required ? 'Required for unlock' : 'Bonus chore'} · {ordinal(current.attempt)} try</div></div></div>
           {current.note && <div className="quote">“{current.note}”</div>}

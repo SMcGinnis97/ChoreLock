@@ -16,6 +16,7 @@ export default function Dashboard() {
   const s = useStore();
   const nav = useNavigate();
   const [awayFor, setAwayFor] = useState<Kid | null>(null);
+  const [dayListFor, setDayListFor] = useState<Kid | null>(null);
   const [questDraft, setQuestDraft] = useState<QuestDraft | null>(null);
   const pendingFor = (kidId: string) => s.instances.filter((i) => i.kidId === kidId && i.status === 'submitted').length;
   const queue = s.instances.filter((i) => i.status === 'submitted');
@@ -40,11 +41,11 @@ export default function Dashboard() {
           const full = p.total > 0 && p.done === p.total;
           return (
             <div key={k.id} className="card kid-card">
-              <div className="row">
+              <button className="row" style={{ textAlign: 'left', width: '100%' }} onClick={() => setDayListFor(k)}>
                 <Avatar kid={k} size="lg" />
                 <div className="spacer"><div className="kid-name">{k.name}</div><div className="kid-sub">{k.absentUntil ? `🏖️ Away ${fmtAway(k.absentUntil)}` : `${p.done} of ${p.total} approved · ⭐ ${k.points} pts`}</div></div>
                 <span className={`wifi-pill ${lock === 'unlocked' ? 'wifi-pill--on' : 'wifi-pill--off'}`}><span className="dot" />{lock === 'unlocked' ? 'Unlocked' : 'Locked'}{k.override ? ' · manual' : ''}</span>
-              </div>
+              </button>
               <div className="progress"><div className={full ? 'full' : ''} style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} /></div>
               <div className="row row--between">
                 {pend ? <Link to="/parent/approvals" className="pending">① {pend} pending review</Link> : <span className="quiet">Nothing pending</span>}
@@ -69,7 +70,7 @@ export default function Dashboard() {
               const k = s.kids.find((x) => x.id === i.kidId)!, c = s.chores.find((x) => x.id === i.choreId)!;
               return (
                 <div key={i.id} className="card row" style={{ padding: 10 }}>
-                  <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'repeating-linear-gradient(135deg,#D8D4CC 0 8px,#E8E5DF 8px 16px)' }}>{i.photoUrl && (i.isVideo ? <video src={i.photoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />)}</div>
+                  <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'repeating-linear-gradient(135deg,#D8D4CC 0 8px,#E8E5DF 8px 16px)' }}>{i.photoUrl ? <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : i.videoUrl ? <video src={i.videoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}</div>
                   <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} · {c.name}</div><div className="kid-sub">{i.submittedAt} · attempt {i.attempt}</div></div>
                   <button className="icon-btn" style={{ background: 'var(--danger-tint)', color: 'var(--danger)' }} onClick={() => nav('/parent/approvals')}><Icon.X size={20} /></button>
                   <button className="icon-btn" style={{ background: 'var(--ok-tint)', color: 'var(--ok-text)' }} onClick={() => s.approve(i.id)}><Icon.Check size={20} /></button>
@@ -117,6 +118,33 @@ export default function Dashboard() {
       )}
 
       {questDraft && <QuestSheet draft={questDraft} onChange={setQuestDraft} onClose={() => setQuestDraft(null)} onSave={() => { s.saveQuest(questDraft); setQuestDraft(null); }} />}
+
+      {dayListFor && (
+        <div className="sheet-backdrop" onClick={() => setDayListFor(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+            <div className="handle" />
+            <h2 style={{ fontSize: 22 }}>{dayListFor.name}’s chores today</h2>
+            <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>Mark things done by hand — for dead phones and other real life.</p>
+            <div className="col">
+              {s.instances.filter((i) => i.kidId === dayListFor.id).map((i) => {
+                const c = s.chores.find((x) => x.id === i.choreId);
+                if (!c) return null;
+                return (
+                  <div key={i.id} className="card row" style={{ padding: 10 }}>
+                    <span className="chore-emoji">{c.emoji}</span>
+                    <div className="spacer"><div className="chore-title">{c.name}</div><div className="chore-sub">{i.status === 'todo' ? 'Not done yet' : i.status === 'submitted' ? 'Waiting for review' : i.status === 'approved' ? 'Approved' : `Rejected — ${i.rejectionReason ?? 'redo'}`}</div></div>
+                    {i.status === 'approved'
+                      ? <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => s.reopen(i.id)}>Undo</button>
+                      : <button className="btn btn--outline-ok" onClick={() => s.approve(i.id)}>Mark done</button>}
+                  </div>
+                );
+              })}
+              {s.instances.filter((i) => i.kidId === dayListFor.id).length === 0 && <p className="quiet" style={{ margin: 0 }}>No chores today.</p>}
+            </div>
+            <button className="btn btn--primary" onClick={() => setDayListFor(null)}>Done</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
