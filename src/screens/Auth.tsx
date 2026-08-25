@@ -12,6 +12,7 @@ export default function Auth({ onDone, needsFamily }: { onDone: () => Promise<vo
   const [family, setFamily] = useState('');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [parentCode, setParentCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const sb = supabase!;
@@ -26,13 +27,23 @@ export default function Auth({ onDone, needsFamily }: { onDone: () => Promise<vo
     const { data, error } = await sb.auth.signUp({ email, password: pw });
     if (error) throw error;
     if (!data.session) throw new Error('Check your email to confirm, then sign in.');
-    const { error: fe } = await sb.rpc('create_family', { family_name: family || `${name}'s family`, parent_name: name });
-    if (fe) throw fe;
+    if (parentCode.trim()) {
+      const { error: je } = await sb.rpc('join_as_parent', { code: parentCode, parent_name: name });
+      if (je) throw je;
+    } else {
+      const { error: fe } = await sb.rpc('create_family', { family_name: family || `${name}'s family`, parent_name: name });
+      if (fe) throw fe;
+    }
   });
   const apple = () => run(async () => { await signInWithApple(); });
   const finishSetup = () => run(async () => {
-    const { error: fe } = await sb.rpc('create_family', { family_name: family || `${name}'s family`, parent_name: name });
-    if (fe) throw fe;
+    if (parentCode.trim()) {
+      const { error: je } = await sb.rpc('join_as_parent', { code: parentCode, parent_name: name });
+      if (je) throw je;
+    } else {
+      const { error: fe } = await sb.rpc('create_family', { family_name: family || `${name}'s family`, parent_name: name });
+      if (fe) throw fe;
+    }
   });
   const joinKid = () => run(async () => {
     const { data: s } = await sb.auth.getSession();
@@ -65,8 +76,9 @@ export default function Auth({ onDone, needsFamily }: { onDone: () => Promise<vo
         <div className="section-label">Almost there — name your family</div>
         <input className="field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         <input className="field" placeholder="Family name (optional)" value={family} onChange={(e) => setFamily(e.target.value)} />
+        <input className="field mono" style={{ textAlign: 'center', letterSpacing: '.2em' }} maxLength={6} autoCapitalize="characters" placeholder="Parent code (joining a family?)" value={parentCode} onChange={(e) => setParentCode(e.target.value.toUpperCase())} />
         {err && <p className="chore-sub chore-sub--reject">{err}</p>}
-        <button className="btn btn--primary" disabled={busy || !name} onClick={finishSetup}>{busy ? 'One sec…' : 'Create family'}</button>
+        <button className="btn btn--primary" disabled={busy || !name} onClick={finishSetup}>{busy ? 'One sec…' : parentCode.trim() ? 'Join family' : 'Create family'}</button>
         <button className="btn btn--text" onClick={() => run(async () => { await sb.auth.signOut(); })}>Sign out</button>
       </div>
     );
@@ -90,11 +102,12 @@ export default function Auth({ onDone, needsFamily }: { onDone: () => Promise<vo
       {Head}
       <div className="section-label">{up ? 'Create your family' : 'Parent sign in'}</div>
       {up && <input className="field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />}
-      {up && <input className="field" placeholder="Family name (optional)" value={family} onChange={(e) => setFamily(e.target.value)} />}
+      {up && !parentCode && <input className="field" placeholder="Family name (optional)" value={family} onChange={(e) => setFamily(e.target.value)} />}
+      {up && <input className="field mono" style={{ textAlign: 'center', letterSpacing: '.2em' }} maxLength={6} autoCapitalize="characters" placeholder="Parent code (joining a family?)" value={parentCode} onChange={(e) => setParentCode(e.target.value.toUpperCase())} />}
       <input className="field" type="email" placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input className="field" type="password" placeholder="Password" autoComplete={up ? 'new-password' : 'current-password'} value={pw} onChange={(e) => setPw(e.target.value)} />
       {err && <p className="chore-sub chore-sub--reject">{err}</p>}
-      <button className="btn btn--primary" disabled={busy || !email || pw.length < 6 || (up && !name)} onClick={up ? signUp : signIn}>{busy ? 'One sec…' : up ? 'Create family' : 'Sign in'}</button>
+      <button className="btn btn--primary" disabled={busy || !email || pw.length < 6 || (up && !name)} onClick={up ? signUp : signIn}>{busy ? 'One sec…' : up ? (parentCode.trim() ? 'Join family' : 'Create family') : 'Sign in'}</button>
       <button className="btn btn--lg" style={{ background: 'var(--ink)', color: 'var(--bg)', width: '100%' }} disabled={busy} onClick={apple}> Sign in with Apple</button>
       <button className="btn btn--text" onClick={() => setMode(up ? 'parent-in' : 'parent-up')}>{up ? 'Already have an account? Sign in' : 'New here? Create a family'}</button>
       <button className="btn btn--text" onClick={() => setMode('pick')}>Back</button>

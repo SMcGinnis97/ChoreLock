@@ -70,8 +70,9 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       if (ke) throw ke;
       await Promise.all((kidRows ?? []).map((k) => sb().rpc('ensure_today', { p_kid: k.id })));
 
-      const [fam, ch, asg, inst, qs, dev, pts, streaks] = await Promise.all([
+      const [fam, invite, ch, asg, inst, qs, dev, pts, streaks] = await Promise.all([
         sb().from('families').select('*').single(),
+        role === 'parent' ? sb().from('parent_invites').select('code').maybeSingle() : Promise.resolve({ data: null }),
         sb().from('chores').select('*').eq('archived', false),
         sb().from('chore_assignments').select('*'),
         sb().from('chore_instances').select('*').in('kid_id', (kidRows ?? []).map((k) => k.id)),
@@ -86,7 +87,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       const todayStr = (inst.data ?? []).reduce((m, i) => (i.date > m ? i.date : m), '');
       const todays = (inst.data ?? []).filter((i) => i.date === todayStr);
 
-      setSettings({ resetTime: fam.data?.reset_time?.slice(0, 5) ?? '00:00', autoApprove: fam.data?.auto_approve ?? false, routerStatus: 'none' });
+      setSettings({ resetTime: fam.data?.reset_time?.slice(0, 5) ?? '00:00', autoApprove: fam.data?.auto_approve ?? false, routerStatus: 'none', parentCode: invite.data?.code ?? undefined });
       setChores((ch.data ?? []).map((c) => ({ id: c.id, name: c.name, emoji: c.emoji, instruction: c.instruction ?? undefined, recurrence: c.recurrence, days: c.days ?? [], rotation: c.rotation ?? 'none', dueTime: c.due_time ? c.due_time.slice(0, 5) : undefined, required: c.required, photoProof: c.photo_proof, kidIds: (asg.data ?? []).filter((a) => a.chore_id === c.id).map((a) => a.kid_id) })));
       setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, joinCode: k.join_code ?? undefined })));
       setInstances(await Promise.all(todays.map(async (i) => ({

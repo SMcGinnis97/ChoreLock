@@ -43,6 +43,18 @@ export default function Settings() {
         </div>
       </div>
 
+      {s.settings.parentCode && (
+        <>
+          <div className="section-label">Parents</div>
+          <div className="group">
+            <div className="group-row">
+              <div className="spacer"><div className="title">Add a co-parent</div><div className="sub">They create their own account and enter this code to join your family with full parent access.</div></div>
+              <div style={{ textAlign: 'right' }}><div className="mono" style={{ fontSize: 16, letterSpacing: '.15em', color: 'var(--accent-deep)', fontWeight: 700 }}>{s.settings.parentCode}</div><div className="sub">parent code</div></div>
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="section-label">Kids</div>
       <div className="group">
         {s.kids.map((k) => (

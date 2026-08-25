@@ -87,4 +87,5 @@ export interface Settings {
   autoApprove: boolean;
   routerStatus: 'connected' | 'disconnected' | 'none';
   routerModel?: string;
+  parentCode?: string; // invite code for adding a co-parent (parent role only)
 }
