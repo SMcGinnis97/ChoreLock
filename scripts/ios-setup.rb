@@ -56,6 +56,7 @@ info = Plist.parse_xml(info_path)
 info['UIBackgroundModes'] = (Array(info['UIBackgroundModes']) | ['remote-notification'])
 info['NSCameraUsageDescription'] ||= 'ChoreKey uses the camera to snap proof that a chore is done.'
 info['NSPhotoLibraryAddUsageDescription'] ||= 'Not used — ChoreKey only takes live photos.'
+info['ITSAppUsesNonExemptEncryption'] = false
 File.write(info_path, info.to_plist)
 
 # ---------- Extensions ----------
