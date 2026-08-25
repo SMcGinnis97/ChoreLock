@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store';
 import { Avatar, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
+import { fmtDue } from '../parent/Chores';
 import type { ChoreInstance } from '../../lib/types';
 
 export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empty' }) {
@@ -14,6 +15,8 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
   const lock = state === 'error' ? 'unknown' : state === 'empty' ? 'unlocked' : s.kidLockState(kid.id);
   const progress = s.requiredProgress(kid.id);
   const nextId = required.find((x) => x.i.status === 'todo' || x.i.status === 'rejected')?.i.id;
+  const openQuests = state ? [] : s.quests.filter((q) => q.status === 'open');
+  const myQuests = state ? [] : s.quests.filter((q) => q.kidId === kid.id && q.status !== 'open' && q.status !== 'approved');
 
   const Header = (
     <>
@@ -47,17 +50,54 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
       </div>
     );
 
+  const away = !!kid.absentUntil;
+  const empty = state === 'empty' || (away && mine.length === 0);
+
+  const QuestCards = (openQuests.length > 0 || myQuests.length > 0) && (
+    <>
+      <div className="section-label">⭐ Side quests — bonus points</div>
+      <div className="col">
+        {myQuests.map((q) => {
+          const actionable = q.status === 'claimed' || q.status === 'rejected';
+          return (
+            <button key={q.id} className={`card card--chore is-bonus ${q.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/quest/${q.id}`)}>
+              <span className="chore-emoji">⭐</span>
+              <div className="spacer">
+                <div className="chore-title">{q.title}</div>
+                {q.status === 'rejected' && q.rejectionReason ? <div className="chore-sub chore-sub--reject">“{q.rejectionReason}”</div> : q.note ? <div className="chore-sub">{q.note}</div> : <div className="chore-sub">Worth {q.points} points</div>}
+              </div>
+              {actionable ? <span className="btn btn--pill">📷 Snap it</span> : <span className="chip chip--submitted">Submitted</span>}
+            </button>
+          );
+        })}
+        {openQuests.map((q) => (
+          <div key={q.id} className="card card--chore is-bonus">
+            <span className="chore-emoji">⭐</span>
+            <div className="spacer">
+              <div className="chore-title">{q.title}</div>
+              <div className="chore-sub">{q.note ? `${q.note} · ` : ''}Worth {q.points} points — first to claim it!</div>
+            </div>
+            <button className="btn btn--pill" onClick={() => s.claimQuest(q.id)}>I got this</button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
   return (
     <div className="screen">
       {Header}
-      <LockBanner state={lock} kidName={kid.name} empty={state === 'empty'} />
+      <LockBanner state={lock} kidName={kid.name} empty={empty} />
 
-      {state === 'empty' ? (
-        <div className="empty">
-          <div className="empty-icon">🏖️</div>
-          <h2>Day off!</h2>
-          <p>No chores assigned today. Your {kid.streakDays}-day streak is safe.</p>
-        </div>
+      {empty ? (
+        <>
+          <div className="empty">
+            <div className="empty-icon">🏖️</div>
+            <h2>{away ? 'You’re marked away!' : 'Day off!'}</h2>
+            <p>{away ? 'No chores while you’re out. ' : 'No chores assigned today. '}Your {kid.streakDays}-day streak is safe.</p>
+          </div>
+          {QuestCards}
+        </>
       ) : (
         <>
           <div className="stats">
@@ -67,7 +107,8 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
             </div>
             <div className="card streak-card">
               <div className="streak-num">🔥 {kid.streakDays}</div>
-              <div className="streak-sub">day streak — don’t break it!</div>
+              <div className="streak-sub">day streak</div>
+              <div className="streak-sub" style={{ marginTop: 4 }}>⭐ {kid.points} pts</div>
             </div>
           </div>
 
@@ -79,7 +120,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
                 <button key={i.id} className={`card card--chore ${i.id === nextId ? 'is-next' : ''} ${i.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/submit/${i.id}`)}>
                   <span className="chore-emoji">{c.emoji}</span>
                   <div className="spacer">
-                    <div className="chore-title">{c.name}</div>
+                    <div className="chore-title">{c.name}{c.dueTime && (i.status === 'todo' || i.status === 'rejected') ? <span className="chip chip--todo" style={{ marginLeft: 8 }}>due {fmtDue(c.dueTime)}</span> : null}</div>
                     {i.status === 'rejected' && i.rejectionReason && <div className="chore-sub chore-sub--reject">“{i.rejectionReason}”</div>}
                     {i.status === 'todo' && c.instruction && <div className="chore-sub">{c.instruction}</div>}
                   </div>
@@ -103,6 +144,8 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
               </div>
             </>
           )}
+
+          {QuestCards}
         </>
       )}
     </div>

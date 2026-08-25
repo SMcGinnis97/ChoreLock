@@ -56,6 +56,7 @@ function AppRoutes({ home }: { home: string }) {
       <Route path="/states" element={<States />} />
       <Route path="/kid" element={<KidHome />} />
       <Route path="/kid/submit/:id" element={<ChoreSubmit />} />
+      <Route path="/kid/quest/:id" element={<ChoreSubmit quest />} />
       <Route path="/parent" element={<ParentShell />}>
         <Route index element={<Dashboard />} />
         <Route path="approvals" element={<Approvals />} />

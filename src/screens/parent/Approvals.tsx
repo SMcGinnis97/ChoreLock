@@ -4,10 +4,14 @@ import { Avatar, Icon } from '../../components/ui';
 
 const REASONS = ['Not finished', 'Photo unclear', 'Wrong chore', 'Redo it, please'];
 
+type Target = { kind: 'chore' | 'quest'; id: string } | null;
+
 export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   const s = useStore();
   const queue = s.instances.filter((i) => i.status === 'submitted');
-  const [rejecting, setRejecting] = useState<string | null>(null);
+  const questQueue = s.quests.filter((q) => q.status === 'submitted');
+  const approvedToday = s.instances.filter((i) => i.status === 'approved' && i.photoUrl);
+  const [rejecting, setRejecting] = useState<Target>(null);
   const [reason, setReason] = useState<string>('');
   const [noteText, setNoteText] = useState('');
   const [dx, setDx] = useState(0);
@@ -19,12 +23,92 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   if (state === 'error')
     return <div className="screen"><h1>Approvals</h1><div className="empty"><div className="empty-icon empty-icon--warn"><Icon.Warning size={48} /></div><h2>Couldn’t load submissions</h2><p>{queue.length} photos are waiting. Check your connection — nothing was lost.</p><button className="btn btn--primary">Try again</button></div></div>;
 
+  const sendBack = () => {
+    if (!rejecting) return;
+    const why = [reason, noteText].filter(Boolean).join(' — ');
+    if (rejecting.kind === 'chore') s.reject(rejecting.id, why); else s.reviewQuest(rejecting.id, false, why);
+    setRejecting(null); setReason(''); setNoteText('');
+  };
+
+  const RejectSheet = rejecting && (() => {
+    const kidName = rejecting.kind === 'chore'
+      ? s.kids.find((k) => k.id === s.instances.find((i) => i.id === rejecting.id)?.kidId)?.name
+      : s.kids.find((k) => k.id === s.quests.find((q) => q.id === rejecting.id)?.kidId)?.name;
+    return (
+      <div className="sheet-backdrop" onClick={() => setRejecting(null)}>
+        <div className="sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="handle" />
+          <h2 style={{ fontSize: 22 }}>Why reject it?</h2>
+          <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>{kidName ?? 'The kid'} sees this and gets a notification. The redo needs your approval.</p>
+          <div className="reason-chips">{REASONS.map((r) => <button key={r} className={`reason-chip ${reason === r ? 'selected' : ''}`} onClick={() => setReason(r)}>{r}</button>)}</div>
+          <textarea className="field" placeholder="Add a note (optional)" value={noteText} onChange={(e) => setNoteText(e.target.value)} />
+          <div className="row">
+            <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setRejecting(null)}>Cancel</button>
+            <button className="btn btn--danger-solid" style={{ flex: 1.4 }} disabled={!reason && !noteText} onClick={sendBack}>Send back</button>
+          </div>
+        </div>
+      </div>
+    );
+  })();
+
+  const QuestSection = questQueue.length > 0 && (
+    <>
+      <div className="section-label">⭐ Side quest proof</div>
+      <div className="col">
+        {questQueue.map((q) => {
+          const k = s.kids.find((x) => x.id === q.kidId);
+          return (
+            <div key={q.id} className="card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="row">
+                {k && <Avatar kid={k} />}
+                <div className="spacer"><div style={{ fontWeight: 800 }}>{k?.name ?? '?'} · {q.title}</div><div className="kid-sub">⭐ {q.points} pts · {q.submittedAt}</div></div>
+              </div>
+              {q.proofUrl && (q.proofIsVideo
+                ? <video src={q.proofUrl} controls playsInline style={{ width: '100%', borderRadius: 12, maxHeight: 260, background: '#000' }} />
+                : <img src={q.proofUrl} alt="" style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover' }} />)}
+              {q.proofNote && <div className="quote">“{q.proofNote}”</div>}
+              <div className="row">
+                <button className="btn btn--outline-danger" style={{ flex: 1 }} onClick={() => setRejecting({ kind: 'quest', id: q.id })}>Reject</button>
+                <button className="btn btn--success" style={{ flex: 1.4 }} onClick={() => s.reviewQuest(q.id, true)}>Approve · ⭐ {q.points}</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  const ApprovedSection = approvedToday.length > 0 && (
+    <>
+      <div className="section-label">Approved today — spot check</div>
+      <div className="col">
+        {approvedToday.map((i) => {
+          const k = s.kids.find((x) => x.id === i.kidId)!, c = s.chores.find((x) => x.id === i.choreId)!;
+          return (
+            <div key={i.id} className="card row" style={{ padding: 10 }}>
+              <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--track)' }}>
+                {i.photoUrl && (i.isVideo
+                  ? <video src={i.photoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />)}
+              </div>
+              <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} · {c.name}</div><div className="kid-sub">{i.submittedAt ?? 'today'}{s.settings.autoApprove && i.attempt === 1 ? ' · auto-approved' : ''}</div></div>
+              <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => setRejecting({ kind: 'chore', id: i.id })}>Reject</button>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
   const current = queue[0];
   if (!current) {
     const approved = s.instances.filter((i) => i.status === 'approved').length, back = s.instances.filter((i) => i.status === 'rejected').length;
     return (
       <div className="screen"><h1>Approvals</h1>
-        <div className="empty"><div className="empty-icon empty-icon--ok"><Icon.Check size={52} /></div><h2>All caught up</h2><p>New photo submissions land here. Today: {approved} approved, {back} sent back.</p><button className="btn btn--outline">Review today’s history</button></div>
+        {questQueue.length === 0 && <div className="empty"><div className="empty-icon empty-icon--ok"><Icon.Check size={52} /></div><h2>All caught up</h2><p>New photo submissions land here. Today: {approved} approved, {back} sent back.</p></div>}
+        {QuestSection}
+        {ApprovedSection}
+        {RejectSheet}
       </div>
     );
   }
@@ -35,16 +119,20 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   const onPointerDown = (e: React.PointerEvent) => { startX.current = e.clientX; };
   const onPointerMove = (e: React.PointerEvent) => { if (startX.current !== null) setDx(e.clientX - startX.current); };
   const onPointerUp = () => {
-    if (dx > 110) s.approve(current.id); else if (dx < -110) setRejecting(current.id);
+    if (dx > 110) s.approve(current.id); else if (dx < -110) setRejecting({ kind: 'chore', id: current.id });
     setDx(0); startX.current = null;
   };
-  const sendBack = () => { if (!rejecting) return; s.reject(rejecting, [reason, noteText].filter(Boolean).join(' — ')); setRejecting(null); setReason(''); setNoteText(''); };
 
   return (
     <div className="screen">
       <div className="row row--between"><h1>Approvals</h1><span className="chip chip--todo">1 of {queue.length}</span></div>
       <div className="approval-card" style={{ transform: `translateX(${dx}px) rotate(${dx / 30}deg)`, transition: startX.current === null ? 'transform .15s' : 'none', touchAction: 'pan-y' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-        <div className="approval-photo">{current.photoUrl && <img src={current.photoUrl} alt="" draggable={false} />}<span className="timestamp">{current.submittedAt}</span></div>
+        <div className="approval-photo">
+          {current.photoUrl && (current.isVideo
+            ? <video src={current.photoUrl} controls autoPlay muted loop playsInline draggable={false} />
+            : <img src={current.photoUrl} alt="" draggable={false} />)}
+          <span className="timestamp">{current.submittedAt}</span>
+        </div>
         <div className="approval-body">
           <div className="row"><Avatar kid={kid} /><div><div className="approval-title">{kid.name} · {chore.name}</div><div className="kid-sub">{chore.required ? 'Required for unlock' : 'Bonus chore'} · {ordinal(current.attempt)} try</div></div></div>
           {current.note && <div className="quote">“{current.note}”</div>}
@@ -53,26 +141,14 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
       {queue.length > 1 && <div className="stack-peek" />}
       <p className="hint">Swipe right to approve · left to reject</p>
       <div className="row">
-        <button className="btn btn--outline-danger btn--lg" style={{ flex: 1 }} onClick={() => setRejecting(current.id)}>Reject</button>
+        <button className="btn btn--outline-danger btn--lg" style={{ flex: 1 }} onClick={() => setRejecting({ kind: 'chore', id: current.id })}>Reject</button>
         <button className="btn btn--success btn--lg" style={{ flex: 1.4 }} onClick={() => s.approve(current.id)}>Approve</button>
       </div>
       <p className="hint" style={{ opacity: .6 }}>{total} submissions today</p>
 
-      {rejecting && (
-        <div className="sheet-backdrop" onClick={() => setRejecting(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="handle" />
-            <h2 style={{ fontSize: 22 }}>Why reject it?</h2>
-            <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>{kid.name} sees this next to the chore.</p>
-            <div className="reason-chips">{REASONS.map((r) => <button key={r} className={`reason-chip ${reason === r ? 'selected' : ''}`} onClick={() => setReason(r)}>{r}</button>)}</div>
-            <textarea className="field" placeholder="Add a note (optional)" value={noteText} onChange={(e) => setNoteText(e.target.value)} />
-            <div className="row">
-              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setRejecting(null)}>Cancel</button>
-              <button className="btn btn--danger-solid" style={{ flex: 1.4 }} disabled={!reason && !noteText} onClick={sendBack}>Send back</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {QuestSection}
+      {ApprovedSection}
+      {RejectSheet}
     </div>
   );
 }

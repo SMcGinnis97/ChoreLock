@@ -30,4 +30,4 @@ Open http://localhost:5173 — pick a kid or the parent dashboard. `/states` pre
 - [ ] `kid-api` edge function (device registration, lock-state read, photo upload)
 - [ ] Daily reset cron + APNs push
 - [ ] Xcode project one-time setup on Codemagic, first TestFlight build
-- [ ] Optional: TP-Link router integration for non-Apple devices (model TBD)
+- [ ] Router integration for non-Apple devices — TP-Link HB210 Pro, **local-agent design in `docs/LOCAL_AGENT.md`**. Blocked on one enforcement test (does the ACL actually cut Wi-Fi?) before build.

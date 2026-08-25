@@ -157,6 +157,8 @@ textarea.field { resize: vertical; min-height: 72px; }
 .seg { display: flex; background: var(--seg-track); border-radius: 12px; padding: 3px; }
 .seg button { flex: 1; padding: 9px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--ink-2); }
 .seg button.active { background: var(--card); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+.seg--wrap { flex-wrap: wrap; }
+.seg--wrap button { flex: 1 1 30%; }
 .days { display: flex; justify-content: space-between; }
 .day { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border-strong); font-weight: 700; font-size: 13px; background: var(--card); }
 .day.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
