@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store';
 import { Avatar, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
+import { isNativeIOS } from '../../native/screenTime';
 import { fmtDue } from '../parent/Chores';
+import DeviceSetup from './DeviceSetup';
 import type { ChoreInstance } from '../../lib/types';
 
 export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empty' }) {
   const s = useStore();
   const nav = useNavigate();
+  const [setupOpen, setSetupOpen] = useState(false);
   const kid = s.kids.find((k) => k.id === s.currentKidId)!;
   const mine = state === 'empty' ? [] : s.instances.filter((i) => i.kidId === kid.id);
   const withChore = (i: ChoreInstance) => ({ i, c: s.chores.find((c) => c.id === i.choreId)! });
@@ -20,7 +24,14 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
 
   const Header = (
     <>
-      <div className="row row--between"><span className="date">{todayLabel()}</span><Avatar kid={kid} /></div>
+      <div className="row row--between">
+        <span className="date">{todayLabel()}</span>
+        <div className="row" style={{ gap: 10 }}>
+          {isNativeIOS() && !state && <button className="icon-btn" style={{ background: 'var(--track)', color: 'var(--ink-3)', width: 36, height: 36 }} aria-label="Device setup (parents)" onClick={() => setSetupOpen(true)}>🛡️</button>}
+          <Avatar kid={kid} />
+        </div>
+      </div>
+      {setupOpen && <DeviceSetup onClose={() => setSetupOpen(false)} />}
       <h1>{lock === 'unlocked' ? `Nice work, ${kid.name}!` : `Let’s do this, ${kid.name}!`}</h1>
     </>
   );

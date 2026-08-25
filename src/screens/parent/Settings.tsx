@@ -33,7 +33,7 @@ export default function Settings() {
           {isNativeIOS() && !st?.authorized && <button className="btn btn--tint" onClick={async () => { try { await ScreenTime.requestAuthorization(); setSt(await ScreenTime.getStatus()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>Authorize</button>}
         </div>
         <button className="group-row" onClick={async () => { try { setSel(await ScreenTime.pickBlockedApps()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>
-          <div className="spacer"><div className="title">Blocked while locked</div><div className="sub">{sel && (sel.appCount + sel.categoryCount + sel.webDomainCount) > 0 ? `${sel.appCount} apps · ${sel.categoryCount} categories · ${sel.webDomainCount} sites` : 'Choose apps, categories, or websites'}</div></div>
+          <div className="spacer"><div className="title">Blocked while locked</div><div className="sub">{sel && (sel.appCount + sel.categoryCount + sel.webDomainCount) > 0 ? `${sel.appCount} apps · ${sel.categoryCount} categories · ${sel.webDomainCount} sites (this device)` : 'Choose apps, categories, or websites'}</div></div>
           <span style={{ color: 'var(--ink-3)' }}><Icon.Chevron /></span>
         </button>
         <div className="group-row">
@@ -42,6 +42,7 @@ export default function Settings() {
           <span className={`dot`} style={{ color: routerOk ? 'var(--ok)' : 'var(--ink-3)' }} />
         </div>
       </div>
+      <p className="hint" style={{ textAlign: 'left' }}>App blocking is per device. Set it up on each kid’s phone: open ChoreKey there, tap the 🛡️ icon, and enter your parent code.</p>
 
       {s.settings.parentCode && (
         <>
