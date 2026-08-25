@@ -195,7 +195,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       reviewQuest: (id, ok, reason) =>
         setQuests((cur) => cur.map((q) => (q.id === id ? { ...q, status: ok ? 'approved' : 'rejected', rejectionReason: ok ? undefined : reason } : q))),
       updateSettings: (patch) => setSettings((s) => ({ ...s, ...patch })),
-      addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: kidLockState(dev.kidId) === 'locked' }]),
+      addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };
   }, [role, currentKidId, kids, chores, instances, quests, devices, settings]);

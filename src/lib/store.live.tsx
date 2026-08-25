@@ -161,7 +161,8 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       if (kid?.override === 'lock') return 'locked';
       return instances.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId))) ? 'locked' : 'unlocked';
     };
-    const devicesWithState = devices.map((d) => ({ ...d, blocked: kidLockState(d.kidId) === 'locked' }));
+    const allClear = kids.length > 0 && kids.every((k) => kidLockState(k.id) === 'unlocked');
+    const devicesWithState = devices.map((d) => ({ ...d, blocked: d.override === 'unlock' ? false : d.override === 'lock' ? true : d.kidId ? kidLockState(d.kidId) === 'locked' : !allClear }));
 
     return {
       role, setRole: () => {}, currentKidId, setCurrentKidId,
@@ -245,7 +246,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         await sb().from('families').update({ ...(patch.resetTime && { reset_time: patch.resetTime }), ...(patch.autoApprove !== undefined && { auto_approve: patch.autoApprove }) }).eq('id', identity.familyId!);
       },
       addDevice: async (dev) => {
-        await sb().from('devices').insert({ kid_id: dev.kidId, name: dev.name, platform: dev.platform, identifier: dev.identifier });
+        await sb().from('devices').insert({ kid_id: dev.kidId, family_id: dev.kidId ? null : identity.familyId, name: dev.name, platform: dev.platform, identifier: dev.identifier });
         await load();
       },
       updateDevice: async (id, patch) => {

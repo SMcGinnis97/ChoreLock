@@ -89,7 +89,7 @@ export interface FamilyParent {
 
 export interface Device {
   id: string;
-  kidId: string;
+  kidId: string | null; // null = community device (shared PS5/TV) — needs ALL kids clear
   name: string;
   platform: 'ios' | 'other';
   identifier: string; // iOS: install id; router-managed: MAC
