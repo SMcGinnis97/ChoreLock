@@ -48,6 +48,12 @@ export default function Settings() {
         <>
           <div className="section-label">Parents</div>
           <div className="group">
+            {s.parents.map((p) => (
+              <div key={p.userId} className="group-row">
+                <div className="avatar" style={{ background: 'var(--ink)' }}>{(p.name ?? p.email ?? '?')[0].toUpperCase()}</div>
+                <div className="spacer"><div className="title">{p.name ?? 'Parent'}{p.isMe ? ' (you)' : ''}</div><div className="sub">{p.email ?? 'Signed in with Apple'}</div></div>
+              </div>
+            ))}
             <div className="group-row">
               <div className="spacer"><div className="title">Add a co-parent</div><div className="sub">They create their own account and enter this code to join your family with full parent access.</div></div>
               <div style={{ textAlign: 'right' }}><div className="mono" style={{ fontSize: 16, letterSpacing: '.15em', color: 'var(--accent-deep)', fontWeight: 700 }}>{s.settings.parentCode}</div><div className="sub">parent code</div></div>

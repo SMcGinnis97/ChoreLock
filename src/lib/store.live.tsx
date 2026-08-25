@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { blocksNow, Ctx, type QuestDraft, type Role, type Store } from './store';
-import type { Chore, ChoreInstance, Device, Kid, LockState, ProofMedia, Settings, SideQuest } from './types';
+import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofMedia, Settings, SideQuest } from './types';
 import { applyLockState } from '../native/screenTime';
 import { Capacitor } from '@capacitor/core';
 import { installId, setupPush } from '../native/push';
@@ -50,6 +50,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
   const [instances, setInstances] = useState<ChoreInstance[]>([]);
   const [quests, setQuests] = useState<SideQuest[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [parents, setParents] = useState<FamilyParent[]>([]);
   const [settings, setSettings] = useState<Settings>({ resetTime: '00:00', autoApprove: false, routerStatus: 'none' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,9 +71,10 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       if (ke) throw ke;
       await Promise.all((kidRows ?? []).map((k) => sb().rpc('ensure_today', { p_kid: k.id })));
 
-      const [fam, invite, ch, asg, inst, qs, dev, pts, streaks] = await Promise.all([
+      const [fam, invite, pars, ch, asg, inst, qs, dev, pts, streaks] = await Promise.all([
         sb().from('families').select('*').single(),
         role === 'parent' ? sb().from('parent_invites').select('code').maybeSingle() : Promise.resolve({ data: null }),
+        role === 'parent' ? sb().from('family_parents').select('*') : Promise.resolve({ data: [] }),
         sb().from('chores').select('*').eq('archived', false),
         sb().from('chore_assignments').select('*'),
         sb().from('chore_instances').select('*').in('kid_id', (kidRows ?? []).map((k) => k.id)),
@@ -102,6 +104,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         proofNote: q.proof_note ?? undefined, rejectionReason: q.rejection_reason ?? undefined, submittedAt: fmtTime(q.submitted_at),
       }))));
       setDevices((dev.data ?? []).map((d) => ({ id: d.id, kidId: d.kid_id, name: d.name, platform: d.platform, identifier: d.identifier, lastSeen: d.last_seen ?? undefined, blocked: false })));
+      setParents((pars.data ?? []).map((p: { user_id: string; display_name: string | null; email: string | null }) => ({ userId: p.user_id, name: p.display_name ?? undefined, email: p.email ?? undefined, isMe: p.user_id === identity.session?.user.id })));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -162,7 +165,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
 
     return {
       role, setRole: () => {}, currentKidId, setCurrentKidId,
-      kids, chores, instances, quests, devices: devicesWithState, settings, loading, error,
+      kids, chores, instances, quests, devices: devicesWithState, settings, parents, loading, error,
       kidLockState, requiredProgress,
       pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length,
       submit: async (id, media, note) => {
@@ -248,7 +251,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       },
       signOut: async () => { await sb().auth.signOut(); },
     };
-  }, [role, currentKidId, kids, chores, instances, quests, devices, settings, loading, error, identity, load, uploadProof, tick]);
+  }, [role, currentKidId, kids, chores, instances, quests, devices, settings, parents, loading, error, identity, load, uploadProof, tick]);
 
   // Push lock state to the native shield whenever it changes (kid devices only).
   useEffect(() => {

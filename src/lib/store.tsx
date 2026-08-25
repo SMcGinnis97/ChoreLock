@@ -4,7 +4,7 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreInstance, Device, Kid, LockState, ProofMedia, Settings, SideQuest } from './types';
+import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofMedia, Settings, SideQuest } from './types';
 import { applyLockState } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -78,6 +78,7 @@ export interface Store {
   role: Role; setRole: (r: Role) => void;
   currentKidId: string; setCurrentKidId: (id: string) => void;
   kids: Kid[]; chores: Chore[]; instances: ChoreInstance[]; quests: SideQuest[]; devices: Device[]; settings: Settings;
+  parents: FamilyParent[];
   // derived
   kidLockState: (kidId: string) => LockState;
   requiredProgress: (kidId: string) => { done: number; total: number };
@@ -137,6 +138,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
 
     return {
       role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings,
+      parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
       kidLockState, requiredProgress,
       pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length,
       submit: (id, media, note) =>

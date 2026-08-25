@@ -72,6 +72,13 @@ export interface ProofMedia {
   isVideo: boolean;
 }
 
+export interface FamilyParent {
+  userId: string;
+  name?: string;
+  email?: string;
+  isMe: boolean;
+}
+
 export interface Device {
   id: string;
   kidId: string;
