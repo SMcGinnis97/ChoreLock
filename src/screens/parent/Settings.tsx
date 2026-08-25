@@ -11,6 +11,7 @@ export default function Settings() {
   const [adding, setAdding] = useState<string | null>(null);
   const [devName, setDevName] = useState('');
   const [addingKid, setAddingKid] = useState(false);
+  const [savingKid, setSavingKid] = useState(false);
   const [kidName, setKidName] = useState('');
   const [kidAge, setKidAge] = useState('');
   const COLORS = ['#0D9488', '#B45309', '#5B5BD6', '#BE185D', '#1D4ED8', '#15803D'];
@@ -29,9 +30,9 @@ export default function Settings() {
         <div className="group-row">
           <div className={`status-tile ${st?.authorized ? '' : 'status-tile--off'}`}><Icon.Phone /></div>
           <div className="spacer"><div className="title">iOS Screen Time</div><div className="sub">{isNativeIOS() ? (st?.authorized ? 'Authorized · shields apps on this device' : 'Not authorized yet') : 'Runs on each kid’s iPhone/iPad'}</div></div>
-          {isNativeIOS() && !st?.authorized && <button className="btn btn--tint" onClick={async () => { await ScreenTime.requestAuthorization(); setSt(await ScreenTime.getStatus()); }}>Authorize</button>}
+          {isNativeIOS() && !st?.authorized && <button className="btn btn--tint" onClick={async () => { try { await ScreenTime.requestAuthorization(); setSt(await ScreenTime.getStatus()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>Authorize</button>}
         </div>
-        <button className="group-row" onClick={async () => { setSel(await ScreenTime.pickBlockedApps()); }}>
+        <button className="group-row" onClick={async () => { try { setSel(await ScreenTime.pickBlockedApps()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>
           <div className="spacer"><div className="title">Blocked while locked</div><div className="sub">{sel && (sel.appCount + sel.categoryCount + sel.webDomainCount) > 0 ? `${sel.appCount} apps · ${sel.categoryCount} categories · ${sel.webDomainCount} sites` : 'Choose apps, categories, or websites'}</div></div>
           <span style={{ color: 'var(--ink-3)' }}><Icon.Chevron /></span>
         </button>
@@ -49,6 +50,7 @@ export default function Settings() {
             <Avatar kid={k} />
             <div className="spacer"><div className="title">{k.name}</div><div className="sub">Age {k.age} · 🔥 {k.streakDays} day streak</div></div>
             {k.joinCode && <div style={{ textAlign: 'right' }}><div className="mono" style={{ fontSize: 16, letterSpacing: '.15em', color: 'var(--accent-deep)', fontWeight: 700 }}>{k.joinCode}</div><div className="sub">join code</div></div>}
+            {s.removeKid && <button className="icon-btn" style={{ background: 'var(--danger-tint)', color: 'var(--danger)', width: 34, height: 34 }} aria-label={`Remove ${k.name}`} onClick={() => { if (confirm(`Remove ${k.name}? Their chores, history, and devices are deleted for good.`)) void s.removeKid!(k.id); }}><Icon.X size={18} /></button>}
           </div>
         ))}
         {s.addKid && <button className="group-row" style={{ color: 'var(--accent-deep)', fontWeight: 700 }} onClick={() => { setAddingKid(true); setKidName(''); setKidAge(''); }}>+ Add a kid</button>}
@@ -94,7 +96,7 @@ export default function Settings() {
             <input className="field" type="number" inputMode="numeric" placeholder="Age" value={kidAge} onChange={(e) => setKidAge(e.target.value)} />
             <div className="row">
               <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setAddingKid(false)}>Cancel</button>
-              <button className="btn btn--primary" style={{ flex: 1.4, width: 'auto' }} disabled={!kidName} onClick={async () => { await s.addKid!({ name: kidName, age: Number(kidAge) || 0, avatarColor: COLORS[s.kids.length % COLORS.length] }); setAddingKid(false); }}>Add</button>
+              <button className="btn btn--primary" style={{ flex: 1.4, width: 'auto' }} disabled={!kidName || savingKid} onClick={async () => { if (savingKid) return; setSavingKid(true); try { await s.addKid!({ name: kidName, age: Number(kidAge) || 0, avatarColor: COLORS[s.kids.length % COLORS.length] }); } finally { setSavingKid(false); setAddingKid(false); } }}>{savingKid ? 'Adding…' : 'Add'}</button>
             </div>
           </div>
         </div>

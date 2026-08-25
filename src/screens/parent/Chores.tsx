@@ -81,13 +81,17 @@ function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, '
       <input className="field" placeholder="Photo instruction, e.g. “Show the full bowl”" value={value.instruction ?? ''} onChange={(e) => set({ instruction: e.target.value })} />
 
       <div className="section-label">Assign to</div>
-      <div className="assign-chips">
-        {s.kids.map((k) => (
-          <button key={k.id} className={`assign-chip ${value.kidIds.includes(k.id) ? 'selected' : ''}`} onClick={() => toggleKid(k.id)}>
-            <Avatar kid={k} size="sm" />{k.name}{value.kidIds.includes(k.id) && ' ✓'}
-          </button>
-        ))}
-      </div>
+      {s.kids.length === 0 ? (
+        <p className="hint" style={{ textAlign: 'left', margin: 0 }}>⚠️ No kids yet — add one in Settings → Kids first. A chore needs at least one kid assigned.</p>
+      ) : (
+        <div className="assign-chips">
+          {s.kids.map((k) => (
+            <button key={k.id} className={`assign-chip ${value.kidIds.includes(k.id) ? 'selected' : ''}`} onClick={() => toggleKid(k.id)}>
+              <Avatar kid={k} size="sm" />{k.name}{value.kidIds.includes(k.id) && ' ✓'}
+            </button>
+          ))}
+        </div>
+      )}
 
       {canRotate && (
         <>
@@ -122,6 +126,15 @@ function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, '
       </div>
 
       <div className="spacer" />
+      {!valid && (
+        <p className="hint" style={{ margin: 0 }}>
+          To save: {[
+            !value.name.trim() && 'give it a name',
+            value.kidIds.length === 0 && 'assign at least one kid',
+            value.recurrence === 'custom' && value.days.length === 0 && 'pick the days it repeats',
+          ].filter(Boolean).join(' · ')}
+        </p>
+      )}
       <button className="btn btn--primary" disabled={!valid} onClick={onSave}>Save chore</button>
     </div>
   );

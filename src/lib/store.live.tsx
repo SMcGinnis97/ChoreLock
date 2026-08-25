@@ -240,6 +240,11 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         await sb().from('kids').insert({ family_id: identity.familyId, name: kid.name, age: kid.age, avatar_color: kid.avatarColor });
         await load();
       },
+      removeKid: async (kidId) => {
+        setKids((cur) => cur.filter((k) => k.id !== kidId));
+        await sb().from('kids').delete().eq('id', kidId);
+        await load();
+      },
       signOut: async () => { await sb().auth.signOut(); },
     };
   }, [role, currentKidId, kids, chores, instances, quests, devices, settings, loading, error, identity, load, uploadProof, tick]);

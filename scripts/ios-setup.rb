@@ -36,10 +36,24 @@ FileUtils.cp(File.join(NATIVE, 'ScreenTimePlugin.swift'), File.join(IOS, 'App', 
 FileUtils.cp(File.join(NATIVE, 'AppDelegate.swift'),      File.join(IOS, 'App', 'AppDelegate.swift'))
 FileUtils.cp(File.join(NATIVE, 'App.entitlements'),       File.join(IOS, 'App', 'App.entitlements'))
 
+FileUtils.cp(File.join(NATIVE, 'MyViewController.swift'), File.join(IOS, 'App', 'MyViewController.swift'))
+
 unless app_group.files.any? { |f| f.path == 'ScreenTimePlugin.swift' }
   ref = app_group.new_file('ScreenTimePlugin.swift')
   app.source_build_phase.add_file_reference(ref)
 end
+unless app_group.files.any? { |f| f.path == 'MyViewController.swift' }
+  ref = app_group.new_file('MyViewController.swift')
+  app.source_build_phase.add_file_reference(ref)
+end
+
+# Point the storyboard at MyViewController so capacitorDidLoad registers app-local plugins.
+storyboard = File.join(IOS, 'App', 'Base.lproj', 'Main.storyboard')
+sb = File.read(storyboard)
+sb = sb.gsub('customClass="CAPBridgeViewController"', 'customClass="MyViewController"')
+       .gsub('customModule="Capacitor"', 'customModule="App"')
+abort 'ios-setup: storyboard patch failed — CAPBridgeViewController not found' unless sb.include?('customClass="MyViewController"')
+File.write(storyboard, sb)
 app_group.new_file('App.entitlements') unless app_group.files.any? { |f| f.path == 'App.entitlements' }
 
 set_all(app, {

@@ -96,6 +96,7 @@ export interface Store {
   updateSettings: (patch: Partial<Settings>) => void;
   addDevice: (dev: Omit<Device, 'id' | 'blocked'>) => void;
   addKid?: (kid: { name: string; age: number; avatarColor: string }) => Promise<void>;
+  removeKid?: (kidId: string) => Promise<void>;
   signOut?: () => Promise<void>;
   loading?: boolean;
   error?: string | null;
