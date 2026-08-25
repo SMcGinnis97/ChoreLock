@@ -3,6 +3,7 @@
 // "Open ChoreLock" -> opens the app via URL scheme (chorelock://) is not allowed
 // directly from an extension, so we defer and the app picks it up on next foreground.
 
+import Foundation
 import ManagedSettings
 
 class ShieldActionExtension: ShieldActionDelegate {
