@@ -13,6 +13,7 @@
 require 'xcodeproj'
 require 'fileutils'
 require 'plist'
+require 'json'
 
 ROOT     = File.expand_path('..', __dir__)
 NATIVE   = File.join(ROOT, 'ios-native')
@@ -46,6 +47,13 @@ unless app_group.files.any? { |f| f.path == 'MyViewController.swift' }
   ref = app_group.new_file('MyViewController.swift')
   app.source_build_phase.add_file_reference(ref)
 end
+
+# Add the app-local plugin to packageClassList so CapacitorBridge.registerPlugins()
+# auto-registers it (NSClassFromString finds it via its @objc(ScreenTimePlugin) name).
+cfg_path = File.join(IOS, 'App', 'capacitor.config.json')
+cfg = JSON.parse(File.read(cfg_path))
+cfg['packageClassList'] = ((cfg['packageClassList'] || []) | ['ScreenTimePlugin'])
+File.write(cfg_path, JSON.pretty_generate(cfg))
 
 # Point the storyboard at MyViewController so capacitorDidLoad registers app-local plugins.
 storyboard = File.join(IOS, 'App', 'Base.lproj', 'Main.storyboard')
