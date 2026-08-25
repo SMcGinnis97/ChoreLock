@@ -103,6 +103,7 @@ EXTENSIONS.each do |ext|
     bf.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
   end
   set_all(target, {
+    'PRODUCT_NAME' => ext[:name],
     'INFOPLIST_FILE' => "#{ext[:name]}/Info.plist",
     'CODE_SIGN_ENTITLEMENTS' => "#{ext[:name]}/#{ext[:name]}.entitlements",
     'PRODUCT_BUNDLE_IDENTIFIER' => "#{BUNDLE}.#{ext[:name]}",
