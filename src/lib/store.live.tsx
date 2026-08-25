@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { blocksNow, Ctx, type QuestDraft, type Role, type Store } from './store';
-import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofMedia, Settings, SideQuest } from './types';
+import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofMedia, Reward, RewardClaim, Settings, SideQuest } from './types';
 import { applyLockState } from '../native/screenTime';
 import { Capacitor } from '@capacitor/core';
 import { installId, setupPush } from '../native/push';
@@ -51,6 +51,8 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
   const [quests, setQuests] = useState<SideQuest[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [parents, setParents] = useState<FamilyParent[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [rewardClaims, setRewardClaims] = useState<RewardClaim[]>([]);
   const [settings, setSettings] = useState<Settings>({ resetTime: '00:00', autoApprove: false, routerStatus: 'none' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,10 +73,12 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       if (ke) throw ke;
       await Promise.all((kidRows ?? []).map((k) => sb().rpc('ensure_today', { p_kid: k.id })));
 
-      const [fam, invite, pars, ch, asg, inst, qs, dev, pts, streaks] = await Promise.all([
+      const [fam, invite, pars, rw, rc, ch, asg, inst, qs, dev, pts, streaks] = await Promise.all([
         sb().from('families').select('*').single(),
         role === 'parent' ? sb().from('parent_invites').select('code').maybeSingle() : Promise.resolve({ data: null }),
         role === 'parent' ? sb().from('family_parents').select('*') : Promise.resolve({ data: [] }),
+        sb().from('rewards').select('*').eq('archived', false).order('points'),
+        sb().from('reward_claims').select('*').order('requested_at', { ascending: false }),
         sb().from('chores').select('*').eq('archived', false),
         sb().from('chore_assignments').select('*'),
         sb().from('chore_instances').select('*').in('kid_id', (kidRows ?? []).map((k) => k.id)),
@@ -97,9 +101,11 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         photoUrl: await signed(i.photo_path), videoUrl: await signed(i.video_path),
         note: i.note ?? undefined, submittedAt: fmtTime(i.submitted_at), rejectionReason: i.rejection_reason ?? undefined,
       }))));
+      setRewards((rw.data ?? []).map((r) => ({ id: r.id, title: r.title, emoji: r.emoji, points: r.points })));
+      setRewardClaims((rc.data ?? []).map((c) => ({ id: c.id, rewardId: c.reward_id, kidId: c.kid_id, status: c.status })));
       setQuests(await Promise.all((qs.data ?? []).map(async (q) => ({
         id: q.id, title: q.title, note: q.note ?? undefined, points: q.points, kidId: q.kid_id,
-        status: q.status, promptUrl: await signed(q.prompt_path),
+        status: q.status, promptUrls: (await Promise.all(((q.prompt_paths ?? []) as string[]).map(signed))).filter((u): u is string => !!u),
         proofUrl: await signed(q.proof_path), proofIsVideo: isVideoPath(q.proof_path),
         proofNote: q.proof_note ?? undefined, rejectionReason: q.rejection_reason ?? undefined, submittedAt: fmtTime(q.submitted_at),
       }))));
@@ -120,6 +126,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chore_instances' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kids' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'side_quests' }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reward_claims' }, () => void load())
       .subscribe();
     const onVis = () => { if (document.visibilityState === 'visible') void load(); };
     document.addEventListener('visibilitychange', onVis);
@@ -166,9 +173,9 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
 
     return {
       role, setRole: () => {}, currentKidId, setCurrentKidId,
-      kids, chores, instances, quests, devices: devicesWithState, settings, parents, loading, error,
+      kids, chores, instances, quests, devices: devicesWithState, settings, parents, rewards, rewardClaims, loading, error,
       kidLockState, requiredProgress,
-      pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length,
+      pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length + rewardClaims.filter((c) => c.status === 'requested').length,
       submit: async (id, proof, note) => {
         const inst = instances.find((i) => i.id === id)!;
         const kid = kids.find((k) => k.id === inst.kidId)!;
@@ -217,13 +224,16 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       saveQuest: async (q: QuestDraft) => {
         const row = { family_id: identity.familyId, title: q.title, note: q.note || null, points: q.points, kid_id: q.kidId, status: q.kidId ? 'claimed' : 'open' };
         const { data, error: e } = q.id
-          ? await sb().from('side_quests').update({ title: q.title, note: q.note || null, points: q.points, kid_id: q.kidId }).eq('id', q.id).select('id').single()
-          : await sb().from('side_quests').insert(row).select('id').single();
+          ? await sb().from('side_quests').update({ title: q.title, note: q.note || null, points: q.points, kid_id: q.kidId }).eq('id', q.id).select('id, prompt_paths').single()
+          : await sb().from('side_quests').insert(row).select('id, prompt_paths').single();
         if (e || !data) { setError(e?.message ?? 'save failed'); return; }
-        if (q.promptMedia) {
-          const path = `${identity.familyId}/quests/${data.id}.${q.promptMedia.ext}`;
-          try { await uploadProof(path, q.promptMedia); await sb().from('side_quests').update({ prompt_path: path }).eq('id', data.id); }
-          catch (e2) { setError((e2 as Error).message); }
+        if (q.promptMedia.length) {
+          try {
+            const existing: string[] = (data.prompt_paths as string[] | null) ?? [];
+            const added = await Promise.all(q.promptMedia.map((m, n) =>
+              uploadProof(`${identity.familyId}/quests/${data.id}-${existing.length + n}.${m.ext}`, m)));
+            await sb().from('side_quests').update({ prompt_paths: [...existing, ...added] }).eq('id', data.id);
+          } catch (e2) { setError((e2 as Error).message); }
         }
         await load();
       },
@@ -240,6 +250,24 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       reviewQuest: async (id, ok, reason) => {
         setQuests((cur) => cur.map((q) => (q.id === id ? { ...q, status: ok ? 'approved' : 'rejected', rejectionReason: ok ? undefined : reason } : q)));
         await sb().from('side_quests').update({ status: ok ? 'approved' : 'rejected', rejection_reason: ok ? null : reason ?? null, reviewed_at: new Date().toISOString() }).eq('id', id);
+      },
+      saveReward: async (r) => {
+        if (r.id) await sb().from('rewards').update({ title: r.title, emoji: r.emoji, points: r.points }).eq('id', r.id);
+        else await sb().from('rewards').insert({ family_id: identity.familyId, title: r.title, emoji: r.emoji, points: r.points });
+        await load();
+      },
+      deleteReward: async (id) => {
+        setRewards((cur) => cur.filter((r) => r.id !== id));
+        await sb().from('rewards').update({ archived: true }).eq('id', id);
+      },
+      redeemReward: async (rewardId) => {
+        await sb().from('reward_claims').insert({ reward_id: rewardId, kid_id: identity.kidId ?? currentKidId });
+        await load();
+      },
+      resolveClaim: async (id, grant) => {
+        setRewardClaims((cur) => cur.map((c) => (c.id === id ? { ...c, status: grant ? 'granted' : 'denied' } : c)));
+        await sb().from('reward_claims').update({ status: grant ? 'granted' : 'denied', resolved_at: new Date().toISOString() }).eq('id', id);
+        await load();
       },
       updateSettings: async (patch) => {
         setSettings((s) => ({ ...s, ...patch }));
@@ -272,7 +300,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       },
       signOut: async () => { await sb().auth.signOut(); },
     };
-  }, [role, currentKidId, kids, chores, instances, quests, devices, settings, parents, loading, error, identity, load, uploadProof, tick]);
+  }, [role, currentKidId, kids, chores, instances, quests, devices, settings, parents, rewards, rewardClaims, loading, error, identity, load, uploadProof, tick]);
 
   // Push lock state to the native shield whenever it changes (kid devices only).
   useEffect(() => {

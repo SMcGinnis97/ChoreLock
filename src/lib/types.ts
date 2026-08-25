@@ -55,7 +55,7 @@ export interface SideQuest {
   title: string;
   note?: string;
   points: number;
-  promptUrl?: string; // parent's photo of the task
+  promptUrls: string[]; // parent's photos of the task
   kidId: string | null; // null = open for any kid to claim
   status: QuestStatus;
   proofUrl?: string;
@@ -63,6 +63,21 @@ export interface SideQuest {
   proofNote?: string;
   rejectionReason?: string;
   submittedAt?: string;
+}
+
+/** A parent-defined reward kids can spend quest points on. */
+export interface Reward {
+  id: string;
+  title: string;
+  emoji: string;
+  points: number;
+}
+
+export interface RewardClaim {
+  id: string;
+  rewardId: string;
+  kidId: string;
+  status: 'requested' | 'granted' | 'denied';
 }
 
 /** What a chore submission carries — one or both, per the chore's proofType. */

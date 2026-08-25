@@ -21,6 +21,8 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
   const nextId = required.find((x) => x.i.status === 'todo' || x.i.status === 'rejected')?.i.id;
   const openQuests = state ? [] : s.quests.filter((q) => q.status === 'open');
   const myQuests = state ? [] : s.quests.filter((q) => q.kidId === kid.id && q.status !== 'open' && q.status !== 'approved');
+  const rewards = state ? [] : s.rewards;
+  const myClaims = state ? [] : s.rewardClaims.filter((c) => c.kidId === kid.id);
 
   const Header = (
     <>
@@ -71,26 +73,52 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
         {myQuests.map((q) => {
           const actionable = q.status === 'claimed' || q.status === 'rejected';
           return (
-            <button key={q.id} className={`card card--chore is-bonus ${q.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/quest/${q.id}`)}>
+            <button key={q.id} className={`card card--chore is-bonus ${q.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/quest/${q.id}`)} style={{ flexWrap: 'wrap' }}>
               <span className="chore-emoji">⭐</span>
               <div className="spacer">
                 <div className="chore-title">{q.title}</div>
                 {q.status === 'rejected' && q.rejectionReason ? <div className="chore-sub chore-sub--reject">“{q.rejectionReason}”</div> : q.note ? <div className="chore-sub">{q.note}</div> : <div className="chore-sub">Worth {q.points} points</div>}
               </div>
               {actionable ? <span className="btn btn--pill">📷 Snap it</span> : <span className="chip chip--submitted">Submitted</span>}
+              {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />)}</div>}
             </button>
           );
         })}
         {openQuests.map((q) => (
-          <div key={q.id} className="card card--chore is-bonus">
+          <div key={q.id} className="card card--chore is-bonus" style={{ flexWrap: 'wrap' }}>
             <span className="chore-emoji">⭐</span>
             <div className="spacer">
               <div className="chore-title">{q.title}</div>
               <div className="chore-sub">{q.note ? `${q.note} · ` : ''}Worth {q.points} points — first to claim it!</div>
             </div>
             <button className="btn btn--pill" onClick={() => s.claimQuest(q.id)}>I got this</button>
+            {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />)}</div>}
           </div>
         ))}
+      </div>
+    </>
+  );
+
+  const RewardShop = rewards.length > 0 && (
+    <>
+      <div className="section-label">🎁 Rewards shop — you have ⭐ {kid.points}</div>
+      <div className="col">
+        {rewards.map((r) => {
+          const pending = myClaims.some((c) => c.rewardId === r.id && c.status === 'requested');
+          const afford = kid.points >= r.points;
+          return (
+            <div key={r.id} className="card card--chore is-bonus">
+              <span className="chore-emoji">{r.emoji}</span>
+              <div className="spacer">
+                <div className="chore-title">{r.title}</div>
+                <div className="chore-sub">⭐ {r.points} points{afford || pending ? '' : ` — ${r.points - kid.points} more to go`}</div>
+              </div>
+              {pending
+                ? <span className="chip chip--submitted">Asked!</span>
+                : <button className="btn btn--pill" disabled={!afford} style={{ opacity: afford ? 1 : .45 }} onClick={() => s.redeemReward(r.id)}>Redeem</button>}
+            </div>
+          );
+        })}
       </div>
     </>
   );
@@ -108,6 +136,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
             <p>{away ? 'No chores while you’re out. ' : 'No chores assigned today. '}Your {kid.streakDays}-day streak is safe.</p>
           </div>
           {QuestCards}
+          {RewardShop}
         </>
       ) : (
         <>
@@ -157,6 +186,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
           )}
 
           {QuestCards}
+          {RewardShop}
         </>
       )}
     </div>

@@ -17,6 +17,7 @@ export default function Settings() {
   const [kidAge, setKidAge] = useState('');
   const COLORS = ['#0D9488', '#B45309', '#5B5BD6', '#BE185D', '#1D4ED8', '#15803D'];
   const [devMac, setDevMac] = useState('');
+  const [rewardDraft, setRewardDraft] = useState<{ id?: string; title: string; emoji: string; points: number } | null>(null);
 
   useEffect(() => { ScreenTime.getStatus().then(setSt); ScreenTime.getSelectionSummary().then(setSel); }, []);
 
@@ -103,6 +104,20 @@ export default function Settings() {
         {s.addKid && <button className="group-row" style={{ color: 'var(--accent-deep)', fontWeight: 700 }} onClick={() => { setAddingKid(true); setKidName(''); setKidAge(''); }}>+ Add a kid</button>}
       </div>
 
+      <div className="section-label">⭐ Rewards shop</div>
+      <div className="group">
+        {s.rewards.map((r) => (
+          <div key={r.id} className="group-row">
+            <span className="chore-emoji">{r.emoji}</span>
+            <div className="spacer"><div className="title">{r.title}</div><div className="sub">⭐ {r.points} points</div></div>
+            <button className="btn btn--text" onClick={() => setRewardDraft({ id: r.id, title: r.title, emoji: r.emoji, points: r.points })}>Edit</button>
+            <button className="icon-btn" style={{ background: 'var(--danger-tint)', color: 'var(--danger)', width: 30, height: 30 }} onClick={() => { if (confirm(`Remove “${r.title}”?`)) s.deleteReward(r.id); }}><Icon.X size={16} /></button>
+          </div>
+        ))}
+        <button className="group-row" style={{ color: 'var(--accent-deep)', fontWeight: 700 }} onClick={() => setRewardDraft({ title: '', emoji: '🎁', points: 25 })}>+ Add a reward</button>
+      </div>
+      <p className="hint" style={{ textAlign: 'left' }}>Kids spend side-quest points here. They tap Redeem, you approve it in Approvals.</p>
+
       <div className="section-label">Kid devices</div>
       <div className="group">
         {s.kids.map((k) => (
@@ -134,6 +149,30 @@ export default function Settings() {
       </div>
       <p className="hint">Resets at {fmtTime(s.settings.resetTime)}</p>
       {s.signOut && <button className="btn btn--outline" onClick={() => s.signOut!()}>Sign out</button>}
+
+      {rewardDraft && (
+        <div className="sheet-backdrop" onClick={() => setRewardDraft(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="handle" />
+            <h2 style={{ fontSize: 22 }}>{rewardDraft.id ? 'Edit reward' : 'Add a reward'}</h2>
+            <div className="row">
+              <input className="field" style={{ width: 64, textAlign: 'center', fontSize: 22 }} value={rewardDraft.emoji} onChange={(e) => setRewardDraft({ ...rewardDraft, emoji: e.target.value.trim() ? [...e.target.value.trim()].slice(-2).join('') : rewardDraft.emoji })} />
+              <input className="field" placeholder="Ice cream run" value={rewardDraft.title} onChange={(e) => setRewardDraft({ ...rewardDraft, title: e.target.value })} autoFocus />
+            </div>
+            <div className="row">
+              <div className="section-label" style={{ margin: 0 }}>Costs</div>
+              <div className="seg" style={{ flex: 1 }}>
+                {[25, 50, 100, 200].map((p) => <button key={p} className={rewardDraft.points === p ? 'active' : ''} onClick={() => setRewardDraft({ ...rewardDraft, points: p })}>⭐ {p}</button>)}
+              </div>
+            </div>
+            <input className="field" type="number" inputMode="numeric" placeholder="Or a custom amount" value={rewardDraft.points} onChange={(e) => setRewardDraft({ ...rewardDraft, points: Number(e.target.value) || 0 })} />
+            <div className="row">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setRewardDraft(null)}>Cancel</button>
+              <button className="btn btn--primary" style={{ flex: 1.4, width: 'auto' }} disabled={!rewardDraft.title.trim() || rewardDraft.points < 1} onClick={() => { s.saveReward(rewardDraft); setRewardDraft(null); }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {addingKid && (
         <div className="sheet-backdrop" onClick={() => setAddingKid(false)}>

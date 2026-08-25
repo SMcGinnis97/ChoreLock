@@ -4,7 +4,7 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Settings, SideQuest } from './types';
+import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest } from './types';
 import { applyLockState } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -49,8 +49,13 @@ const INSTANCES: ChoreInstance[] = [
 ];
 
 const QUESTS: SideQuest[] = [
-  { id: 'q1', title: 'Wipe down the patio table', note: 'Before grandma visits Saturday', points: 10, kidId: null, status: 'open' },
-  { id: 'q2', title: 'Pull weeds by the mailbox', points: 15, kidId: 'k3', status: 'claimed' },
+  { id: 'q1', title: 'Wipe down the patio table', note: 'Before grandma visits Saturday', points: 10, kidId: null, status: 'open', promptUrls: [] },
+  { id: 'q2', title: 'Pull weeds by the mailbox', points: 15, kidId: 'k3', status: 'claimed', promptUrls: [] },
+];
+
+const REWARDS: Reward[] = [
+  { id: 'r1', title: 'Ice cream run', emoji: '🍦', points: 30 },
+  { id: 'r2', title: '1 hr extra screen time', emoji: '🎮', points: 50 },
 ];
 
 const DEVICES: Device[] = [
@@ -71,7 +76,7 @@ export interface QuestDraft {
   note?: string;
   points: number;
   kidId: string | null;
-  promptMedia?: ProofMedia; // parent's photo of the task
+  promptMedia: ProofMedia[]; // parent's photos of the task (appended to any existing)
 }
 
 export interface Store {
@@ -79,6 +84,7 @@ export interface Store {
   currentKidId: string; setCurrentKidId: (id: string) => void;
   kids: Kid[]; chores: Chore[]; instances: ChoreInstance[]; quests: SideQuest[]; devices: Device[]; settings: Settings;
   parents: FamilyParent[];
+  rewards: Reward[]; rewardClaims: RewardClaim[];
   // derived
   kidLockState: (kidId: string) => LockState;
   requiredProgress: (kidId: string) => { done: number; total: number };
@@ -96,6 +102,10 @@ export interface Store {
   claimQuest: (questId: string) => void;
   submitQuest: (questId: string, media: ProofMedia, note?: string) => void;
   reviewQuest: (questId: string, approved: boolean, reason?: string) => void;
+  saveReward: (reward: Omit<Reward, 'id'> & { id?: string }) => void;
+  deleteReward: (rewardId: string) => void;
+  redeemReward: (rewardId: string) => void; // kid asks to spend points
+  resolveClaim: (claimId: string, grant: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   addDevice: (dev: Omit<Device, 'id' | 'blocked'>) => void;
   updateDevice: (id: string, patch: Pick<Device, 'override' | 'scheduleStart' | 'scheduleEnd'>) => void;
@@ -116,6 +126,8 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
   const [chores, setChores] = useState(CHORES);
   const [instances, setInstances] = useState(INSTANCES);
   const [quests, setQuests] = useState(QUESTS);
+  const [rewards, setRewards] = useState(REWARDS);
+  const [rewardClaims, setRewardClaims] = useState<RewardClaim[]>([]);
   const [devices, setDevices] = useState(DEVICES);
   const [settings, setSettings] = useState(SETTINGS);
 
@@ -143,8 +155,9 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
     return {
       role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings,
       parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
+      rewards, rewardClaims,
       kidLockState, requiredProgress,
-      pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length,
+      pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length + rewardClaims.filter((c) => c.status === 'requested').length,
       submit: (id, proof, note) =>
         setInstances((cur) => {
           const auto = settings.autoApprove && cur.find((i) => i.id === id)!.attempt === 1;
@@ -187,18 +200,22 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
         setChores((cur) => (chore.id ? cur.map((c) => (c.id === chore.id ? { ...c, ...chore, id: c.id } : c)) : [...cur, { ...chore, id: `c${Date.now()}` }])),
       saveQuest: (q) =>
         setQuests((cur) => (q.id
-          ? cur.map((x) => (x.id === q.id ? { ...x, title: q.title, note: q.note, points: q.points, kidId: q.kidId, promptUrl: q.promptMedia?.previewUrl ?? x.promptUrl } : x))
-          : [...cur, { id: `q${Date.now()}`, title: q.title, note: q.note, points: q.points, kidId: q.kidId, promptUrl: q.promptMedia?.previewUrl, status: q.kidId ? 'claimed' : 'open' }])),
+          ? cur.map((x) => (x.id === q.id ? { ...x, title: q.title, note: q.note, points: q.points, kidId: q.kidId, promptUrls: [...x.promptUrls, ...q.promptMedia.map((m) => m.previewUrl)] } : x))
+          : [...cur, { id: `q${Date.now()}`, title: q.title, note: q.note, points: q.points, kidId: q.kidId, promptUrls: q.promptMedia.map((m) => m.previewUrl), status: q.kidId ? 'claimed' : 'open' }])),
       claimQuest: (id) => setQuests((cur) => cur.map((q) => (q.id === id ? { ...q, kidId: currentKidId, status: 'claimed' } : q))),
       submitQuest: (id, media, note) =>
         setQuests((cur) => cur.map((q) => (q.id === id ? { ...q, status: 'submitted', proofUrl: media.previewUrl, proofIsVideo: media.isVideo, proofNote: note, submittedAt: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) } : q))),
       reviewQuest: (id, ok, reason) =>
         setQuests((cur) => cur.map((q) => (q.id === id ? { ...q, status: ok ? 'approved' : 'rejected', rejectionReason: ok ? undefined : reason } : q))),
+      saveReward: (r) => setRewards((cur) => (r.id ? cur.map((x) => (x.id === r.id ? { ...x, ...r, id: x.id } : x)) : [...cur, { ...r, id: `r${Date.now()}` }])),
+      deleteReward: (id) => setRewards((cur) => cur.filter((r) => r.id !== id)),
+      redeemReward: (rewardId) => setRewardClaims((cur) => [...cur, { id: `rc${Date.now()}`, rewardId, kidId: currentKidId, status: 'requested' }]),
+      resolveClaim: (id, grant) => setRewardClaims((cur) => cur.map((c) => (c.id === id ? { ...c, status: grant ? 'granted' : 'denied' } : c))),
       updateSettings: (patch) => setSettings((s) => ({ ...s, ...patch })),
       addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };
-  }, [role, currentKidId, kids, chores, instances, quests, devices, settings]);
+  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

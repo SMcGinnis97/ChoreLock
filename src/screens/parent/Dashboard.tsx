@@ -81,21 +81,21 @@ export default function Dashboard() {
         </>
       )}
 
-      <div className="row row--between"><span className="section-label">⭐ Side quests</span><button className="btn btn--pill" onClick={() => setQuestDraft({ title: '', points: 5, kidId: null })}>+ Drop a quest</button></div>
+      <div className="row row--between"><span className="section-label">⭐ Side quests</span><button className="btn btn--pill" onClick={() => setQuestDraft({ title: '', points: 5, kidId: null, promptMedia: [] })}>+ Drop a quest</button></div>
       {activeQuests.length === 0 && questQueue.length === 0 && <p className="quiet" style={{ margin: 0 }}>Extra jobs kids can claim for bonus points. Drop one in passing — add a photo so they know what you mean.</p>}
       <div className="col">
         {activeQuests.map((q) => {
           const k = q.kidId ? s.kids.find((x) => x.id === q.kidId) : null;
           return (
             <div key={q.id} className="card row" style={{ padding: 12 }}>
-              {q.promptUrl && <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}><img src={q.promptUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>}
+              {q.promptUrls[0] && <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', flexShrink: 0, position: 'relative' }}><img src={q.promptUrls[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{q.promptUrls.length > 1 && <span className="chip chip--todo" style={{ position: 'absolute', right: 2, bottom: 2, padding: '1px 5px', fontSize: 10 }}>+{q.promptUrls.length - 1}</span>}</div>}
               <div className="spacer">
                 <div style={{ fontWeight: 800 }}>{q.title} <span className="chip chip--bonus">⭐ {q.points}</span></div>
                 <div className="kid-sub">{q.status === 'open' ? 'Open — first kid to claim it' : q.status === 'submitted' ? `${k?.name ?? '?'} submitted proof` : `${k?.name ?? '?'} is on it`}</div>
               </div>
               {q.status === 'submitted'
                 ? <button className="btn btn--tint" onClick={() => nav('/parent/approvals')}>Review</button>
-                : <button className="btn btn--text" onClick={() => setQuestDraft({ id: q.id, title: q.title, note: q.note, points: q.points, kidId: q.kidId })}>Edit</button>}
+                : <button className="btn btn--text" onClick={() => setQuestDraft({ id: q.id, title: q.title, note: q.note, points: q.points, kidId: q.kidId, promptMedia: [] })}>Edit</button>}
             </div>
           );
         })}
@@ -157,13 +157,13 @@ function QuestSheet({ draft, onChange, onClose, onSave }: { draft: QuestDraft; o
   const attach = async () => {
     if (Capacitor.isNativePlatform()) {
       const r = await Camera.getPhoto({ source: CameraSource.Prompt, resultType: CameraResultType.DataUrl, quality: 70, width: 1280, correctOrientation: true });
-      if (r.dataUrl) set({ promptMedia: await dataUrlToMedia(r.dataUrl) });
+      if (r.dataUrl) set({ promptMedia: [...draft.promptMedia, await dataUrlToMedia(r.dataUrl)] });
     } else fileRef.current?.click();
   };
   const onFile = async (f: File | undefined) => {
     if (!f) return;
     const dataUrl = await new Promise<string>((res) => { const rd = new FileReader(); rd.onload = () => res(rd.result as string); rd.readAsDataURL(f); });
-    set({ promptMedia: await dataUrlToMedia(dataUrl) });
+    set({ promptMedia: [...draft.promptMedia, await dataUrlToMedia(dataUrl)] });
   };
 
   return (
@@ -186,8 +186,17 @@ function QuestSheet({ draft, onChange, onClose, onSave }: { draft: QuestDraft; o
             <button key={k.id} className={`assign-chip ${draft.kidId === k.id ? 'selected' : ''}`} onClick={() => set({ kidId: k.id })}>{k.name}{draft.kidId === k.id && ' ✓'}</button>
           ))}
         </div>
-        <button className="btn btn--outline" onClick={attach}>{draft.promptMedia ? '📸 Photo attached — retake' : '📸 Add a photo of it (optional)'}</button>
-        {draft.promptMedia && <img src={draft.promptMedia.previewUrl} alt="" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 14 }} />}
+        <button className="btn btn--outline" onClick={attach}>📸 {draft.promptMedia.length ? 'Add another photo' : 'Add a photo of it (optional)'}</button>
+        {draft.promptMedia.length > 0 && (
+          <div className="row" style={{ gap: 8, overflowX: 'auto' }}>
+            {draft.promptMedia.map((m, n) => (
+              <div key={n} style={{ position: 'relative', flexShrink: 0 }}>
+                <img src={m.previewUrl} alt="" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12 }} />
+                <button className="icon-btn" style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, background: 'var(--danger)', color: '#fff' }} onClick={() => set({ promptMedia: draft.promptMedia.filter((_, i) => i !== n) })}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
         <div className="row">
           <button className="btn btn--outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>

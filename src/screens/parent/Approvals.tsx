@@ -78,6 +78,28 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
     </>
   );
 
+  const claimQueue = s.rewardClaims.filter((c) => c.status === 'requested');
+  const RewardSection = claimQueue.length > 0 && (
+    <>
+      <div className="section-label">⭐ Reward requests</div>
+      <div className="col">
+        {claimQueue.map((c) => {
+          const r = s.rewards.find((x) => x.id === c.rewardId); const k = s.kids.find((x) => x.id === c.kidId);
+          if (!r || !k) return null;
+          const afford = k.points >= r.points;
+          return (
+            <div key={c.id} className="card row" style={{ padding: 12 }}>
+              <span className="chore-emoji">{r.emoji}</span>
+              <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} wants: {r.title}</div><div className="kid-sub">⭐ {r.points} pts · {k.name} has {k.points}{afford ? '' : ' — not enough!'}</div></div>
+              <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => s.resolveClaim(c.id, false)}>Deny</button>
+              <button className="btn btn--success" onClick={() => s.resolveClaim(c.id, true)}>Grant</button>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
   const ApprovedSection = approvedToday.length > 0 && (
     <>
       <div className="section-label">Approved today — spot check</div>
@@ -103,8 +125,9 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
     const approved = s.instances.filter((i) => i.status === 'approved').length, back = s.instances.filter((i) => i.status === 'rejected').length;
     return (
       <div className="screen"><h1>Approvals</h1>
-        {questQueue.length === 0 && <div className="empty"><div className="empty-icon empty-icon--ok"><Icon.Check size={52} /></div><h2>All caught up</h2><p>New photo submissions land here. Today: {approved} approved, {back} sent back.</p></div>}
+        {questQueue.length === 0 && claimQueue.length === 0 && <div className="empty"><div className="empty-icon empty-icon--ok"><Icon.Check size={52} /></div><h2>All caught up</h2><p>New photo submissions land here. Today: {approved} approved, {back} sent back.</p></div>}
         {QuestSection}
+        {RewardSection}
         {ApprovedSection}
         {RejectSheet}
       </div>
@@ -144,6 +167,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
       <p className="hint" style={{ opacity: .6 }}>{total} submissions today</p>
 
       {QuestSection}
+      {RewardSection}
       {ApprovedSection}
       {RejectSheet}
     </div>
