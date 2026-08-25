@@ -6,6 +6,7 @@
 // immediately if there are no chores today).
 // Shares App Group `group.app.chorelock`.
 
+import Foundation
 import DeviceActivity
 import FamilyControls
 import ManagedSettings
