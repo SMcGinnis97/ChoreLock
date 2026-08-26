@@ -9,6 +9,9 @@ import { applyLockState } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
 
+/** True when the kid is currently grounded (locked no matter what). */
+export const isGrounded = (k: Kid | undefined) => !!k?.groundedUntil && new Date(k.groundedUntil).getTime() > Date.now();
+
 /** True when a required instance blocks Wi-Fi right now (due-time aware). */
 export const blocksNow = (i: ChoreInstance, c: Chore | undefined) => {
   if (!c?.required || i.status === 'approved') return false;
@@ -97,6 +100,8 @@ export interface Store {
   reopen: (instanceId: string) => void;
   override: (kidId: string, mode: 'lock' | 'unlock' | null) => void;
   setAbsent: (kidId: string, until: string | null) => void;
+  /** Ground (until ISO timestamp + reason) or lift (null). Grounding trumps everything. */
+  setGrounding: (kidId: string, until: string | null, reason?: string) => void;
   saveChore: (chore: Omit<Chore, 'id'> & { id?: string }) => void;
   saveQuest: (quest: QuestDraft) => void;
   claimQuest: (questId: string) => void;
@@ -140,6 +145,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
     };
     const kidLockState = (kidId: string): LockState => {
       const kid = kids.find((k) => k.id === kidId);
+      if (isGrounded(kid)) return 'locked';
       if (kid?.absentUntil && kid.absentUntil >= today()) return 'unlocked';
       if (kid?.override === 'unlock') return 'unlocked';
       if (kid?.override === 'lock') return 'locked';
@@ -149,7 +155,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       // Recompute and push to the native shield (no-op on web).
       const kid = nextKids.find((k) => k.id === kidId)!;
       const blocked = next.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId)));
-      const state: LockState = kid.override === 'unlock' ? 'unlocked' : kid.override === 'lock' ? 'locked' : blocked ? 'locked' : 'unlocked';
+      const state: LockState = isGrounded(kid) ? 'locked' : kid.override === 'unlock' ? 'unlocked' : kid.override === 'lock' ? 'locked' : blocked ? 'locked' : 'unlocked';
       if (kidId === currentKidId) void applyLockState(state);
       setDevices((ds) => ds.map((dv) => (dv.kidId === kidId ? { ...dv, blocked: state === 'locked' } : dv)));
     };
@@ -195,6 +201,12 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       setAbsent: (kidId, until) =>
         setKids((cur) => {
           const next = cur.map((k) => (k.id === kidId ? { ...k, absentUntil: until ?? undefined } : k));
+          sync(kidId, instances, next);
+          return next;
+        }),
+      setGrounding: (kidId, until, reason) =>
+        setKids((cur) => {
+          const next = cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k));
           sync(kidId, instances, next);
           return next;
         }),

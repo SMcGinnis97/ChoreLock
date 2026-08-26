@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { useStore, type QuestDraft } from '../../lib/store';
+import { isGrounded, useStore, type QuestDraft } from '../../lib/store';
 import { Avatar, Icon, todayLabel } from '../../components/ui';
 import { PullToRefresh } from '../../components/feedback';
 import type { Kid, ProofMedia } from '../../lib/types';
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const s = useStore();
   const nav = useNavigate();
   const [awayFor, setAwayFor] = useState<Kid | null>(null);
+  const [groundFor, setGroundFor] = useState<Kid | null>(null);
   const [dayListFor, setDayListFor] = useState<Kid | null>(null);
   const [questDraft, setQuestDraft] = useState<QuestDraft | null>(null);
   const pendingFor = (kidId: string) => s.instances.filter((i) => i.kidId === kidId && i.status === 'submitted').length;
@@ -26,6 +27,7 @@ export default function Dashboard() {
 
   const markAway = (until: string | null) => { if (awayFor) s.setAbsent(awayFor.id, until); setAwayFor(null); };
   const fmtAway = (until: string) => until >= '9999' ? 'until further notice' : `through ${new Date(until + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
+  const fmtGrounded = (until: string) => until >= '9999' ? 'until you lift it' : `until ${new Date(until).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`;
 
   return (
     <PullToRefresh onRefresh={s.reload} caption="Refreshing…">
@@ -41,24 +43,31 @@ export default function Dashboard() {
           const lock = s.kidLockState(k.id);
           const pend = pendingFor(k.id);
           const full = p.total > 0 && p.done === p.total;
+          const grounded = isGrounded(k);
           return (
             <div key={k.id} className="card kid-card">
               <button className="row" style={{ textAlign: 'left', width: '100%' }} onClick={() => setDayListFor(k)}>
                 <Avatar kid={k} size="lg" />
-                <div className="spacer"><div className="kid-name">{k.name}</div><div className="kid-sub">{k.absentUntil ? `🏖️ Away ${fmtAway(k.absentUntil)}` : `${p.done} of ${p.total} approved · ⭐ ${k.points} pts`}</div></div>
-                <span className={`wifi-pill ${lock === 'unlocked' ? 'wifi-pill--on' : 'wifi-pill--off'}`}><span className="dot" />{lock === 'unlocked' ? 'Unlocked' : 'Locked'}{k.override ? ' · manual' : ''}</span>
+                <div className="spacer"><div className="kid-name">{k.name}</div><div className="kid-sub">{grounded ? `😤 Grounded ${fmtGrounded(k.groundedUntil!)}` : k.absentUntil ? `🏖️ Away ${fmtAway(k.absentUntil)}` : `${p.done} of ${p.total} approved · ⭐ ${k.points} pts`}</div></div>
+                <span className={`wifi-pill ${lock === 'unlocked' ? 'wifi-pill--on' : 'wifi-pill--off'}`}><span className="dot" />{lock === 'unlocked' ? 'Unlocked' : 'Locked'}{grounded ? ' · grounded' : k.override ? ' · manual' : ''}</span>
               </button>
+              {grounded && k.groundedReason && <div className="quote" style={{ padding: '8px 12px' }}>“{k.groundedReason}”</div>}
               <div className="progress"><div className={full ? 'full' : ''} style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} /></div>
               <div className="row row--between">
                 {pend ? <Link to="/parent/approvals" className="pending">① {pend} pending review</Link> : <span className="quiet">Nothing pending</span>}
                 <div className="row" style={{ gap: 8 }}>
-                  <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => (k.absentUntil ? s.setAbsent(k.id, null) : setAwayFor(k))}>{k.absentUntil ? 'Back home' : 'Away'}</button>
-                  {lock === 'unlocked'
-                    ? <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => { if (confirm(`Lock ${k.name}’s devices now?`)) s.override(k.id, 'lock'); }}>Lock now</button>
-                    : <button className="btn btn--outline-ok" onClick={() => s.override(k.id, 'unlock')}>Unlock now</button>}
+                  {grounded
+                    ? <button className="btn btn--outline-ok" onClick={() => s.setGrounding(k.id, null)}>Lift grounding</button>
+                    : <>
+                        <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => (k.absentUntil ? s.setAbsent(k.id, null) : setAwayFor(k))}>{k.absentUntil ? 'Back home' : 'Away'}</button>
+                        <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => setGroundFor(k)}>Ground</button>
+                        {lock === 'unlocked'
+                          ? <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => { if (confirm(`Lock ${k.name}’s devices now?`)) s.override(k.id, 'lock'); }}>Lock now</button>
+                          : <button className="btn btn--outline-ok" onClick={() => s.override(k.id, 'unlock')}>Unlock now</button>}
+                      </>}
                 </div>
               </div>
-              {k.override && <button className="btn btn--text" style={{ alignSelf: 'flex-start', minHeight: 0 }} onClick={() => s.override(k.id, null)}>Clear manual override</button>}
+              {k.override && !grounded && <button className="btn btn--text" style={{ alignSelf: 'flex-start', minHeight: 0 }} onClick={() => s.override(k.id, null)}>Clear manual override</button>}
             </div>
           );
         })}
@@ -119,6 +128,8 @@ export default function Dashboard() {
         </div>
       )}
 
+      {groundFor && <GroundSheet kid={groundFor} onClose={() => setGroundFor(null)} onGround={(until, reason) => { s.setGrounding(groundFor.id, until, reason); setGroundFor(null); }} />}
+
       {questDraft && <QuestSheet draft={questDraft} onChange={setQuestDraft} onClose={() => setQuestDraft(null)} onSave={() => { s.saveQuest(questDraft); setQuestDraft(null); }} />}
 
       {dayListFor && (
@@ -149,6 +160,43 @@ export default function Dashboard() {
       )}
     </div>
     </PullToRefresh>
+  );
+}
+
+const GROUND_REASONS = ['Attitude', 'Broke a rule', 'Homework not done', 'Missed curfew'];
+
+/** Pick a reason (the kid sees it, with a push) and a duration; duration buttons commit. */
+function GroundSheet({ kid, onClose, onGround }: { kid: Kid; onClose: () => void; onGround: (until: string, reason: string) => void }) {
+  const [reason, setReason] = useState('');
+  const [note, setNote] = useState('');
+  const why = [reason, note.trim()].filter(Boolean).join(' — ');
+
+  const ground = (until: Date | 'forever') => {
+    onGround(until === 'forever' ? '9999-12-31T00:00:00.000Z' : until.toISOString(), why);
+  };
+  const endOfDay = () => { const d = new Date(); d.setHours(23, 59, 59, 0); return d; };
+  const inDays = (n: number) => new Date(Date.now() + n * 86_400_000);
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="handle" />
+        <h2 style={{ fontSize: 22 }}>Ground {kid.name}</h2>
+        <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>Wi-Fi and devices lock right away — chores won’t unlock them. {kid.name} gets a notification with the reason.</p>
+        <div className="reason-chips">{GROUND_REASONS.map((r) => <button key={r} className={`reason-chip ${reason === r ? 'selected' : ''}`} onClick={() => setReason(reason === r ? '' : r)}>{r}</button>)}</div>
+        <textarea className="field" placeholder="Add details (the kid sees this)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <div className="section-label" style={{ margin: 0 }}>For how long?</div>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <button className="btn btn--outline" style={{ flex: '1 1 45%' }} disabled={!why} onClick={() => ground(endOfDay())}>Rest of today</button>
+          <button className="btn btn--outline" style={{ flex: '1 1 45%' }} disabled={!why} onClick={() => ground(inDays(1))}>24 hours</button>
+          <button className="btn btn--outline" style={{ flex: '1 1 45%' }} disabled={!why} onClick={() => ground(inDays(3))}>3 days</button>
+          <button className="btn btn--outline" style={{ flex: '1 1 45%' }} disabled={!why} onClick={() => ground(inDays(7))}>A week</button>
+          <button className="btn btn--danger-solid" style={{ flex: '1 1 100%' }} disabled={!why} onClick={() => ground('forever')}>Until I lift it</button>
+        </div>
+        {!why && <p className="hint" style={{ margin: 0 }}>Pick or write a reason first — kids always see why.</p>}
+        <button className="btn btn--text" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
   );
 }
 

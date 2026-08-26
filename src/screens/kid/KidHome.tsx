@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../../lib/store';
-import { Avatar, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
+import { isGrounded, useStore } from '../../lib/store';
+import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
 import { isNativeIOS } from '../../native/screenTime';
 import { fmtDue } from '../parent/Chores';
@@ -137,7 +137,18 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
     <div className="screen">
       {justUnlocked && <Confetti onDone={() => setJustUnlocked(false)} />}
       {Header}
-      <LockBanner state={lock} kidName={kid.name} empty={empty} />
+      {!state && isGrounded(kid)
+        ? (
+          <div className="banner" style={{ background: 'var(--danger)' }}>
+            <Icon.WifiOff />
+            <div>
+              <h2>You’re grounded 😔</h2>
+              <p>{kid.groundedReason ? `“${kid.groundedReason}”` : 'Ask your parent why.'}</p>
+              <p style={{ opacity: .75 }}>{(kid.groundedUntil ?? '') >= '9999' ? 'Until a parent lifts it' : `Until ${new Date(kid.groundedUntil!).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`} — chores won’t unlock Wi-Fi.</p>
+            </div>
+          </div>
+        )
+        : <LockBanner state={lock} kidName={kid.name} empty={empty} />}
 
       {empty ? (
         <>

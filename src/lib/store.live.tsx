@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { blocksNow, Ctx, type QuestDraft, type Role, type Store } from './store';
+import { blocksNow, isGrounded, Ctx, type QuestDraft, type Role, type Store } from './store';
 import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofMedia, Reward, RewardClaim, Settings, SideQuest } from './types';
 import { applyLockState } from '../native/screenTime';
 import { Capacitor } from '@capacitor/core';
@@ -95,7 +95,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
 
       setSettings({ resetTime: fam.data?.reset_time?.slice(0, 5) ?? '00:00', autoApprove: fam.data?.auto_approve ?? false, routerStatus: 'none', parentCode: invite.data?.code ?? undefined });
       setChores((ch.data ?? []).map((c) => ({ id: c.id, name: c.name, emoji: c.emoji, instruction: c.instruction ?? undefined, recurrence: c.recurrence, days: c.days ?? [], rotation: c.rotation ?? 'none', dueTime: c.due_time ? c.due_time.slice(0, 5) : undefined, required: c.required, photoProof: c.photo_proof, proofType: c.proof_type ?? 'photo', kidIds: (asg.data ?? []).filter((a) => a.chore_id === c.id).map((a) => a.kid_id) })));
-      setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, joinCode: k.join_code ?? undefined })));
+      setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, groundedUntil: k.grounded_until ?? undefined, groundedReason: k.grounded_reason ?? undefined, joinCode: k.join_code ?? undefined })));
       setInstances(await Promise.all(todays.map(async (i) => ({
         id: i.id, choreId: i.chore_id, kidId: i.kid_id, date: i.date, status: i.status, attempt: i.attempt,
         photoUrl: await signed(i.photo_path), videoUrl: await signed(i.video_path),
@@ -163,6 +163,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
     const kidLockState = (kidId: string): LockState => {
       if (error) return 'unknown';
       const kid = kids.find((k) => k.id === kidId);
+      if (isGrounded(kid)) return 'locked';
       if (kid?.absentUntil) return 'unlocked';
       if (kid?.override === 'unlock') return 'unlocked';
       if (kid?.override === 'lock') return 'locked';
@@ -209,6 +210,10 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       setAbsent: async (kidId, until) => {
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, absentUntil: until ?? undefined } : k)));
         await sb().from('kids').update({ absent_until: until }).eq('id', kidId);
+      },
+      setGrounding: async (kidId, until, reason) => {
+        setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k)));
+        await sb().rpc('set_grounding', { p_kid: kidId, p_until: until, p_reason: reason ?? null });
       },
       saveChore: async (chore) => {
         const row = { family_id: identity.familyId, name: chore.name, emoji: chore.emoji, instruction: chore.instruction || null, recurrence: chore.recurrence, days: chore.days, rotation: chore.rotation, due_time: chore.dueTime || null, required: chore.required, photo_proof: chore.photoProof };

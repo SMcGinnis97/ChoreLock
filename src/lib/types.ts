@@ -15,6 +15,8 @@ export interface Kid {
   points: number; // side-quest points earned
   override: 'lock' | 'unlock' | null; // parent manual override for today
   absentUntil?: string; // YYYY-MM-DD; set = away (no chores, unlocked) through that date
+  groundedUntil?: string; // ISO timestamp; set + future = grounded (locked no matter what)
+  groundedReason?: string; // shown to the kid (banner + push)
   joinCode?: string; // shown to parent for enrolling kid devices
 }
 

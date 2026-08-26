@@ -1,10 +1,12 @@
 // notify-kid: sends APNs pushes to all iOS devices of one or more kids.
 //
 // Invoked by DB triggers / pg_cron via pg_net with a service-role bearer.
-// Body: { kid_ids: string[], kind: 'reset' | 'state' | 'approved' | 'rejected', chore?: string, reason?: string }
+// Body: { kid_ids: string[], kind: 'reset' | 'state' | 'approved' | 'rejected' | 'grounded' | 'ungrounded', chore?: string, reason?: string }
 //   reset/state  -> silent push (content-available) so the app refetches and re-applies the shield
 //   approved     -> alert "🎉 {chore} approved" + silent flag
 //   rejected     -> alert "{chore} sent back: {reason}"
+//   grounded     -> alert "You're grounded" with the parent's reason (+ silent flag so the shield engages)
+//   ungrounded   -> alert "You're ungrounded" (+ silent flag)
 //
 // Secrets (supabase secrets set ...): APNS_KEY (p8 contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (app.chorelock),
 // APNS_ENV ('sandbox' | 'production').
@@ -61,12 +63,14 @@ Deno.serve(async (req) => {
   const { data: devices } = await sb.from('devices').select('id, push_token').in('kid_id', kid_ids).eq('platform', 'ios').not('push_token', 'is', null);
 
   const silent = kind === 'reset' || kind === 'state';
+  const alert =
+    kind === 'approved' ? { title: '🎉 Approved!', body: `${chore} is done. Nice work.` }
+    : kind === 'grounded' ? { title: 'You’re grounded 😔', body: reason ? `${reason} — Wi-Fi is off until it’s lifted.` : 'Wi-Fi is off until it’s lifted. Ask your parent why.' }
+    : kind === 'ungrounded' ? { title: 'You’re ungrounded 🎉', body: 'Wi-Fi is back — chores still count.' }
+    : { title: 'Sent back', body: `${chore}: ${reason ?? 'take another look'}` };
   const payload = silent
     ? { aps: { 'content-available': 1 }, kind }
-    : {
-        aps: { alert: kind === 'approved' ? { title: '🎉 Approved!', body: `${chore} is done. Nice work.` } : { title: 'Sent back', body: `${chore}: ${reason ?? 'take another look'}` }, sound: 'default', 'content-available': 1 },
-        kind,
-      };
+    : { aps: { alert, sound: 'default', 'content-available': 1 }, kind };
 
   const results = await Promise.all((devices ?? []).map(async (d) => {
     const r = await send(d.push_token!, payload, silent);
