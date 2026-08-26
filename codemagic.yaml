@@ -52,7 +52,7 @@ workflows:
       - *ios_project
       - name: Signing (development)
         script: |
-          for id in app.chorelock app.chorelock.ChoreLockShield app.chorelock.ChoreLockShieldAction app.chorelock.ChoreLockMonitor; do
+          for id in app.chorelock app.chorelock.ChoreLockShield app.chorelock.ChoreLockShieldAction app.chorelock.ChoreLockMonitor app.chorelock.ChoreLockComms; do
             app-store-connect fetch-signing-files "$id" --type IOS_APP_DEVELOPMENT --create
           done
           keychain initialize && keychain add-certificates && xcode-project use-profiles
@@ -76,7 +76,7 @@ workflows:
       - *ios_project
       - name: Signing (App Store)
         script: |
-          for id in app.chorelock app.chorelock.ChoreLockShield app.chorelock.ChoreLockShieldAction app.chorelock.ChoreLockMonitor; do
+          for id in app.chorelock app.chorelock.ChoreLockShield app.chorelock.ChoreLockShieldAction app.chorelock.ChoreLockMonitor app.chorelock.ChoreLockComms; do
             app-store-connect fetch-signing-files "$id" --type IOS_APP_STORE --create
           done
           keychain initialize && keychain add-certificates && xcode-project use-profiles

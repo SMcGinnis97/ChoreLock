@@ -7,10 +7,12 @@
 //   rejected     -> alert "{chore} sent back: {reason}"
 //   grounded     -> alert "You're grounded" with the parent's reason (+ silent flag so the shield engages)
 //   ungrounded   -> alert "You're ungrounded" (+ silent flag)
-//   summon       -> time-sensitive alert "chore" = human title ("Come to the Kitchen"), "reason" = note.
-//                   Re-sent every 30s by private.ping_summons until acknowledged. Set the APNS_CRITICAL
-//                   secret to '1' once Apple grants the Critical Alerts entitlement to also break
-//                   through the silent switch at full volume.
+//   summon       -> time-sensitive alert "chore" = human title ("Come to the Kitchen"), "reason" = note,
+//                   "sender" = calling parent's display name. Re-sent every 30s by private.ping_summons
+//                   until acknowledged. mutable-content lets the ChoreLockComms service extension render
+//                   it as a communication notification from that parent. Set the APNS_CRITICAL secret to
+//                   '1' once Apple grants the Critical Alerts entitlement to also break through the
+//                   silent switch at full volume.
 //
 // Secrets (supabase secrets set ...): APNS_KEY (p8 contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (app.chorelock),
 // APNS_ENV ('sandbox' | 'production').
@@ -60,7 +62,7 @@ Deno.serve(async (req) => {
   let role = '';
   try { role = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role; } catch { /* fallthrough */ }
   if (role !== 'service_role') return new Response('unauthorized', { status: 401 });
-  const { kid_ids, kind, chore, reason } = await req.json();
+  const { kid_ids, kind, chore, reason, sender } = await req.json();
   if (!Array.isArray(kid_ids) || kid_ids.length === 0) return Response.json({ sent: 0 });
 
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
@@ -78,7 +80,11 @@ Deno.serve(async (req) => {
     : 'default';
   const payload = silent
     ? { aps: { 'content-available': 1 }, kind }
-    : { aps: { alert, sound, 'content-available': 1, ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1 }) }, kind };
+    : {
+        aps: { alert, sound, 'content-available': 1, ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1, 'mutable-content': 1 }) },
+        kind,
+        ...(kind === 'summon' && sender && { senderName: sender }),
+      };
 
   const results = await Promise.all((devices ?? []).map(async (d) => {
     const r = await send(d.push_token!, payload, silent);

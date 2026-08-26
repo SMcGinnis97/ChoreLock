@@ -79,6 +79,8 @@ info['UIBackgroundModes'] = (Array(info['UIBackgroundModes']) | ['remote-notific
 info['NSCameraUsageDescription'] ||= 'ChoreKey uses the camera to snap proof that a chore is done.'
 info['NSPhotoLibraryAddUsageDescription'] ||= 'Not used — ChoreKey only takes live photos.'
 info['ITSAppUsesNonExemptEncryption'] = false
+# Communication notifications: declare the message intent so summon pushes can render as from the parent.
+info['NSUserActivityTypes'] = (Array(info['NSUserActivityTypes']) | ['INSendMessageIntent'])
 File.write(info_path, info.to_plist)
 
 # ---------- App icon (single 1024 universal, Xcode 14+) ----------
@@ -105,6 +107,9 @@ EXTENSIONS = [
   { name: 'ChoreLockMonitor',      point: 'com.apple.deviceactivity.monitor-extension', principal: 'DeviceActivityMonitorExtension',
     src: 'ChoreLockMonitor/DeviceActivityMonitorExtension.swift', ent: 'ChoreLockMonitor/ChoreLockMonitor.entitlements',
     frameworks: %w[DeviceActivity ManagedSettings FamilyControls] },
+  { name: 'ChoreLockComms',        point: 'com.apple.usernotifications.service', principal: 'NotificationService',
+    src: 'ChoreLockComms/NotificationService.swift', ent: 'ChoreLockComms/ChoreLockComms.entitlements',
+    frameworks: %w[UserNotifications Intents] },
 ]
 
 embed = app.build_phases.find { |p| p.is_a?(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase) && p.name == 'Embed Foundation Extensions' }
