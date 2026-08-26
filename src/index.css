@@ -219,6 +219,16 @@ textarea.field { resize: vertical; min-height: 72px; }
 .ripple { position: absolute; inset: -2px; border-radius: 50%; border: 3px solid var(--accent); animation: rippleOut 1.8s ease-out infinite; pointer-events: none; }
 @keyframes rippleOut { from { transform: scale(.9); opacity: .8; } to { transform: scale(1.7); opacity: 0; } }
 
+/* ---- Summon takeover ---- */
+.summon-overlay { position: fixed; inset: 0; z-index: 60; background: linear-gradient(160deg, #E5541E, #B4451B); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 32px; text-align: center; }
+.summon-icon { font-size: 76px; animation: megaphone 1s ease-in-out infinite; }
+@keyframes megaphone { 0%,100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(8deg) scale(1.12); } }
+.summon-where { margin: 0; color: #fff; font-weight: 800; font-size: 21px; }
+.summon-note { margin: 0; color: rgba(255,255,255,.85); font-weight: 600; font-size: 15px; }
+.summon-ack { background: #fff; color: #B4451B; width: 100%; max-width: 320px; min-height: 60px; font-size: 18px; margin-top: 14px; }
+.summon-hint { margin: 0; color: rgba(255,255,255,.7); font-weight: 600; font-size: 12.5px; }
+@media (prefers-reduced-motion: reduce) { .summon-icon { animation: none; } }
+
 /* ---- Insights / stats charts ---- */
 .day-bars { display: flex; gap: 4px; align-items: flex-end; height: 18px; }
 .day-bars i { width: 14px; border-radius: 3px; background: var(--accent); transform-origin: bottom; animation: growBar .6s ease-out both; }

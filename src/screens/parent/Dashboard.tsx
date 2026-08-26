@@ -18,6 +18,7 @@ export default function Dashboard() {
   const nav = useNavigate();
   const [awayFor, setAwayFor] = useState<Kid | null>(null);
   const [groundFor, setGroundFor] = useState<Kid | null>(null);
+  const [callOpen, setCallOpen] = useState(false);
   const [dayListFor, setDayListFor] = useState<Kid | null>(null);
   const [questDraft, setQuestDraft] = useState<QuestDraft | null>(null);
   const pendingFor = (kidId: string) => s.instances.filter((i) => i.kidId === kidId && i.status === 'submitted').length;
@@ -34,8 +35,35 @@ export default function Dashboard() {
     <div className="screen">
       <div className="row row--between">
         <div><div className="date">{todayLabel()}</div><h1 style={{ fontSize: 27 }}>Today</h1></div>
-        {s.pendingCount > 0 && <Link to="/parent/approvals" className="btn btn--tint">{s.pendingCount} to review →</Link>}
+        <div className="row" style={{ gap: 8 }}>
+          {s.pendingCount > 0 && <Link to="/parent/approvals" className="btn btn--tint">{s.pendingCount} to review →</Link>}
+          <button className="btn btn--pill" style={{ background: 'var(--warn)' }} onClick={() => setCallOpen(true)}>📢 Call</button>
+        </div>
       </div>
+
+      {(() => {
+        const calls = s.summons.filter((x) => !x.canceledAt && (x.acknowledgedAt || new Date(x.expiresAt).getTime() > Date.now()));
+        if (!calls.length) return null;
+        return (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="section-label" style={{ margin: 0 }}>📢 Calls</div>
+            {calls.map((c) => {
+              const k = s.kids.find((x) => x.id === c.kidId);
+              return (
+                <div key={c.id} className="row">
+                  <div className="spacer">
+                    <div style={{ fontWeight: 800 }}>{k?.name ?? '?'} → {c.location}</div>
+                    <div className="kid-sub">{c.acknowledgedAt
+                      ? `✓ On the way · ${new Date(c.acknowledgedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                      : '🔔 Dinging every 30s…'}</div>
+                  </div>
+                  {!c.acknowledgedAt && <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => s.cancelSummon(c.id)}>Cancel</button>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       <div className="kid-grid">
         {s.kids.map((k) => {
@@ -128,6 +156,8 @@ export default function Dashboard() {
         </div>
       )}
 
+      {callOpen && <CallSheet onClose={() => setCallOpen(false)} onCall={(kidIds, location, note, meeting) => { s.callKids(kidIds, location, note, meeting); setCallOpen(false); }} />}
+
       {groundFor && <GroundSheet kid={groundFor} onClose={() => setGroundFor(null)} onGround={(until, reason) => { s.setGrounding(groundFor.id, until, reason); setGroundFor(null); }} />}
 
       {questDraft && <QuestSheet draft={questDraft} onChange={setQuestDraft} onClose={() => setQuestDraft(null)} onSave={() => { s.saveQuest(questDraft); setQuestDraft(null); }} />}
@@ -160,6 +190,48 @@ export default function Dashboard() {
       )}
     </div>
     </PullToRefresh>
+  );
+}
+
+const CALL_PLACES = ['Kitchen', 'Living room', 'Front door', 'Car', 'Backyard'];
+
+/** Call everyone (family meeting) or specific kids to a place; dings until they acknowledge. */
+function CallSheet({ onClose, onCall }: { onClose: () => void; onCall: (kidIds: string[], location: string, note: string | undefined, meeting: boolean) => void }) {
+  const s = useStore();
+  const [who, setWho] = useState<'all' | string[]>('all');
+  const [place, setPlace] = useState('');
+  const [custom, setCustom] = useState('');
+  const [note, setNote] = useState('');
+  const location = custom.trim() || place;
+  const kidIds = who === 'all' ? s.kids.map((k) => k.id) : who;
+  const toggleKid = (id: string) => setWho((cur) => {
+    const list = cur === 'all' ? [] : [...cur];
+    return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+  });
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="handle" />
+        <h2 style={{ fontSize: 22 }}>📢 Call the kids</h2>
+        <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>Their phones ding every 30 seconds until they tap “On my way!” (stops on its own after 15 min).</p>
+        <div className="section-label" style={{ margin: 0 }}>Who</div>
+        <div className="assign-chips">
+          <button className={`assign-chip ${who === 'all' ? 'selected' : ''}`} onClick={() => setWho('all')}>👨‍👩‍👧‍👦 Everyone — family meeting</button>
+          {s.kids.map((k) => (
+            <button key={k.id} className={`assign-chip ${who !== 'all' && who.includes(k.id) ? 'selected' : ''}`} onClick={() => toggleKid(k.id)}>{k.name}{who !== 'all' && who.includes(k.id) ? ' ✓' : ''}</button>
+          ))}
+        </div>
+        <div className="section-label" style={{ margin: 0 }}>Where</div>
+        <div className="reason-chips">{CALL_PLACES.map((p) => <button key={p} className={`reason-chip ${place === p && !custom.trim() ? 'selected' : ''}`} onClick={() => { setPlace(p); setCustom(''); }}>{p}</button>)}</div>
+        <input className="field" placeholder="Or type a place…" value={custom} onChange={(e) => setCustom(e.target.value)} />
+        <input className="field" placeholder="Why? (optional — they see this)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <div className="row">
+          <button className="btn btn--outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
+          <button className="btn btn--primary" style={{ flex: 1.4, background: 'var(--warn)' }} disabled={!location || kidIds.length === 0} onClick={() => onCall(kidIds, location, note.trim() || undefined, who === 'all')}>📢 Call now</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

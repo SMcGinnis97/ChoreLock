@@ -14,6 +14,7 @@ import Insights from './screens/parent/Insights';
 import Chores from './screens/parent/Chores';
 import Settings from './screens/parent/Settings';
 import { Avatar, LogoTile, Wordmark } from './components/ui';
+import SummonOverlay from './components/summon';
 
 /** Mock-mode role/kid picker (no backend configured). */
 function Welcome() {
@@ -54,6 +55,8 @@ function AppRoutes({ home }: { home: string }) {
   const s = useStore();
   if (useSplashHold(!!s.loading)) return <Splash />;
   return (
+    <>
+    <SummonOverlay />
     <Routes>
       <Route path="/" element={home === '/' ? <Welcome /> : <Navigate to={home} replace />} />
       <Route path="/states" element={<States />} />
@@ -70,6 +73,7 @@ function AppRoutes({ home }: { home: string }) {
       </Route>
       <Route path="*" element={<Navigate to={home} replace />} />
     </Routes>
+    </>
   );
 }
 

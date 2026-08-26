@@ -4,10 +4,14 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest } from './types';
+import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon } from './types';
 import { applyLockState } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
+
+/** The summon currently dinging for a kid, if any. */
+export const activeSummon = (list: Summon[], kidId: string) =>
+  list.find((x) => x.kidId === kidId && !x.acknowledgedAt && !x.canceledAt && new Date(x.expiresAt).getTime() > Date.now());
 
 /** True when the kid is currently grounded (locked no matter what). */
 export const isGrounded = (k: Kid | undefined) => !!k?.groundedUntil && new Date(k.groundedUntil).getTime() > Date.now();
@@ -86,6 +90,7 @@ export interface Store {
   role: Role; setRole: (r: Role) => void;
   currentKidId: string; setCurrentKidId: (id: string) => void;
   kids: Kid[]; chores: Chore[]; instances: ChoreInstance[]; quests: SideQuest[]; devices: Device[]; settings: Settings;
+  summons: Summon[];
   parents: FamilyParent[];
   rewards: Reward[]; rewardClaims: RewardClaim[];
   // derived
@@ -102,6 +107,10 @@ export interface Store {
   setAbsent: (kidId: string, until: string | null) => void;
   /** Ground (until ISO timestamp + reason) or lift (null). Grounding trumps everything. */
   setGrounding: (kidId: string, until: string | null, reason?: string) => void;
+  /** Call kids to a location — repeated pushes until each one acknowledges. */
+  callKids: (kidIds: string[], location: string, note?: string, meeting?: boolean) => void;
+  ackSummon: (id: string) => void;
+  cancelSummon: (id: string) => void;
   saveChore: (chore: Omit<Chore, 'id'> & { id?: string }) => void;
   saveQuest: (quest: QuestDraft) => void;
   claimQuest: (questId: string) => void;
@@ -137,6 +146,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
   const [rewardClaims, setRewardClaims] = useState<RewardClaim[]>([]);
   const [devices, setDevices] = useState(DEVICES);
   const [settings, setSettings] = useState(SETTINGS);
+  const [summons, setSummons] = useState<Summon[]>([]);
 
   const store = useMemo<Store>(() => {
     const requiredProgress = (kidId: string) => {
@@ -161,7 +171,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
     };
 
     return {
-      role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings,
+      role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings, summons,
       parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
       rewards, rewardClaims,
       kidLockState, requiredProgress,
@@ -204,6 +214,16 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
           sync(kidId, instances, next);
           return next;
         }),
+      callKids: (kidIds, location, note, meeting) =>
+        setSummons((cur) => [
+          ...cur.map((x) => (kidIds.includes(x.kidId) && !x.acknowledgedAt && !x.canceledAt ? { ...x, canceledAt: new Date().toISOString() } : x)),
+          ...kidIds.map((kidId, n) => ({
+            id: `sm${Date.now()}-${n}`, kidId, location, note: note || undefined, meeting: !!meeting,
+            createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+          })),
+        ]),
+      ackSummon: (id) => setSummons((cur) => cur.map((x) => (x.id === id ? { ...x, acknowledgedAt: new Date().toISOString() } : x))),
+      cancelSummon: (id) => setSummons((cur) => cur.map((x) => (x.id === id ? { ...x, canceledAt: new Date().toISOString() } : x))),
       setGrounding: (kidId, until, reason) =>
         setKids((cur) => {
           const next = cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k));
@@ -230,7 +250,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };
-  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings]);
+  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

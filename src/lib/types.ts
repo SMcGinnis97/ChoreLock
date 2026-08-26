@@ -97,6 +97,19 @@ export interface ProofMedia {
   isVideo: boolean;
 }
 
+/** A "come here now" call from a parent. Dings the kid every 30s until acknowledged. */
+export interface Summon {
+  id: string;
+  kidId: string;
+  location: string;
+  note?: string;
+  meeting: boolean; // part of a family-meeting call (everyone)
+  createdAt: string; // ISO
+  expiresAt: string; // ISO — pings stop on their own after this
+  acknowledgedAt?: string;
+  canceledAt?: string;
+}
+
 export interface FamilyParent {
   userId: string;
   name?: string;

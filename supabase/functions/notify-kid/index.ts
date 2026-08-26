@@ -7,6 +7,10 @@
 //   rejected     -> alert "{chore} sent back: {reason}"
 //   grounded     -> alert "You're grounded" with the parent's reason (+ silent flag so the shield engages)
 //   ungrounded   -> alert "You're ungrounded" (+ silent flag)
+//   summon       -> time-sensitive alert "chore" = human title ("Come to the Kitchen"), "reason" = note.
+//                   Re-sent every 30s by private.ping_summons until acknowledged. Set the APNS_CRITICAL
+//                   secret to '1' once Apple grants the Critical Alerts entitlement to also break
+//                   through the silent switch at full volume.
 //
 // Secrets (supabase secrets set ...): APNS_KEY (p8 contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (app.chorelock),
 // APNS_ENV ('sandbox' | 'production').
@@ -67,10 +71,14 @@ Deno.serve(async (req) => {
     kind === 'approved' ? { title: '🎉 Approved!', body: `${chore} is done. Nice work.` }
     : kind === 'grounded' ? { title: 'You’re grounded 😔', body: reason ? `${reason} — Wi-Fi is off until it’s lifted.` : 'Wi-Fi is off until it’s lifted. Ask your parent why.' }
     : kind === 'ungrounded' ? { title: 'You’re ungrounded 🎉', body: 'Wi-Fi is back — chores still count.' }
+    : kind === 'summon' ? { title: `📢 ${chore}`, body: reason ?? 'It keeps dinging until you tap “On my way!” in ChoreKey.' }
     : { title: 'Sent back', body: `${chore}: ${reason ?? 'take another look'}` };
+  const sound = kind === 'summon' && Deno.env.get('APNS_CRITICAL') === '1'
+    ? { critical: 1, name: 'default', volume: 1.0 } // needs the Critical Alerts entitlement
+    : 'default';
   const payload = silent
     ? { aps: { 'content-available': 1 }, kind }
-    : { aps: { alert, sound: 'default', 'content-available': 1 }, kind };
+    : { aps: { alert, sound, 'content-available': 1, ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1 }) }, kind };
 
   const results = await Promise.all((devices ?? []).map(async (d) => {
     const r = await send(d.push_token!, payload, silent);
