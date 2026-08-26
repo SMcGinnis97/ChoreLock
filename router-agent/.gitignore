@@ -1,0 +1,7 @@
+# Secrets — never commit. The example below IS committed (see negation).
+.env
+.env.local
+node_modules
+
+# Re-include the template that the root .env.* rule would otherwise hide.
+!.env.example

@@ -1,0 +1,23 @@
+{
+  "name": "chorelock-router-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Always-on LAN agent that enforces ChoreKey Wi-Fi locks on the TP-Link HB210 Pro by reconciling its Access Control deny list against Supabase lock state.",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "chorelock-agent": "src/main.js",
+    "chorelock-selftest": "bin/selftest.js"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "selftest": "node bin/selftest.js",
+    "once": "node src/main.js --once"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
+    "dotenv": "^17.0.0"
+  }
+}
