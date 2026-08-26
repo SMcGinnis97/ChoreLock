@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { signInWithApple } from '../lib/appleAuth';
+import { LogoTile } from '../components/ui';
 
 type Mode = 'pick' | 'parent-in' | 'parent-up' | 'kid' | 'setup';
 
@@ -54,7 +55,7 @@ export default function Auth({ onDone, needsFamily }: { onDone: () => Promise<vo
 
   const Head = (
     <>
-      <div style={{ fontSize: 56, textAlign: 'center' }}>🔒</div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}><LogoTile size={84} /></div>
       <h1 style={{ textAlign: 'center' }}>ChoreKey</h1>
     </>
   );

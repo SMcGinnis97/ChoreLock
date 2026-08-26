@@ -113,6 +113,8 @@ export interface Store {
   addKid?: (kid: { name: string; age: number; avatarColor: string }) => Promise<void>;
   removeKid?: (kidId: string) => Promise<void>;
   signOut?: () => Promise<void>;
+  /** Re-fetch everything (pull-to-refresh). No-op in mock mode. */
+  reload?: () => Promise<void>;
   loading?: boolean;
   error?: string | null;
 }
@@ -212,6 +214,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       redeemReward: (rewardId) => setRewardClaims((cur) => [...cur, { id: `rc${Date.now()}`, rewardId, kidId: currentKidId, status: 'requested' }]),
       resolveClaim: (id, grant) => setRewardClaims((cur) => cur.map((c) => (c.id === id ? { ...c, status: grant ? 'granted' : 'denied' } : c))),
       updateSettings: (patch) => setSettings((s) => ({ ...s, ...patch })),
+      reload: () => new Promise((res) => setTimeout(res, 600)),
       addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };

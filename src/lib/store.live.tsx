@@ -299,6 +299,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         await load();
       },
       signOut: async () => { await sb().auth.signOut(); },
+      reload: load,
     };
   }, [role, currentKidId, kids, chores, instances, quests, devices, settings, parents, rewards, rewardClaims, loading, error, identity, load, uploadProof, tick]);
 

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store';
-import { Avatar, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
+import { Avatar, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
+import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
 import { isNativeIOS } from '../../native/screenTime';
 import { fmtDue } from '../parent/Chores';
 import DeviceSetup from './DeviceSetup';
@@ -19,6 +20,14 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
   const lock = state === 'error' ? 'unknown' : state === 'empty' ? 'unlocked' : s.kidLockState(kid.id);
   const progress = s.requiredProgress(kid.id);
   const nextId = required.find((x) => x.i.status === 'todo' || x.i.status === 'rejected')?.i.id;
+  // Unlock moment: confetti fires only on the locked→unlocked transition, never on load.
+  const prevLock = useRef<typeof lock | null>(null);
+  const [justUnlocked, setJustUnlocked] = useState(false);
+  useEffect(() => {
+    if (prevLock.current === 'locked' && lock === 'unlocked') setJustUnlocked(true);
+    prevLock.current = lock;
+  }, [lock]);
+
   const openQuests = state ? [] : s.quests.filter((q) => q.status === 'open');
   const myQuests = state ? [] : s.quests.filter((q) => q.kidId === kid.id && q.status !== 'open' && q.status !== 'approved');
   const rewards = state ? [] : s.rewards;
@@ -45,7 +54,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
         <div className="skel" style={{ height: 96, borderRadius: 20 }} />
         <div className="stats"><div className="skel" style={{ flex: 1, height: 94 }} /><div className="skel" style={{ width: 118, height: 94 }} /></div>
         <div className="skel" style={{ height: 64 }} /><div className="skel" style={{ height: 64 }} /><div className="skel" style={{ height: 64 }} />
-        <p className="hint">Checking your chores…</p>
+        <div className="load-foot"><span className="spin" style={{ display: 'grid', placeItems: 'center' }}><KeyGlyph size={16} /></span>Checking your chores…</div>
       </div>
     );
 
@@ -124,7 +133,9 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
   );
 
   return (
+    <PullToRefresh onRefresh={s.reload} caption="Checking chores…">
     <div className="screen">
+      {justUnlocked && <Confetti onDone={() => setJustUnlocked(false)} />}
       {Header}
       <LockBanner state={lock} kidName={kid.name} empty={empty} />
 
@@ -145,11 +156,12 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
               <Ring done={progress.done} total={progress.total} />
               <div><div className="ring-label">Required chores</div><div className="streak-sub">{progress.total - progress.done === 0 ? 'All approved!' : `${progress.total - progress.done} to go`}</div></div>
             </div>
-            <div className="card streak-card">
-              <div className="streak-num">🔥 {kid.streakDays}</div>
+            <button className="card streak-card" style={{ position: 'relative', textAlign: 'left' }} onClick={() => nav('/kid/stats')}>
+              {justUnlocked && <FloatPill text="+1 🔥" />}
+              <div className={`streak-num ${justUnlocked ? 'pulse' : ''}`}>🔥 {kid.streakDays}</div>
               <div className="streak-sub">day streak</div>
               <div className="streak-sub" style={{ marginTop: 4 }}>⭐ {kid.points} pts</div>
-            </div>
+            </button>
           </div>
 
           <div className="section-label">Today’s chores</div>
@@ -190,5 +202,6 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
         </>
       )}
     </div>
+    </PullToRefresh>
   );
 }

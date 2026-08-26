@@ -123,7 +123,7 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
         <div className="spacer" />
         <div className="thumb-wrap">
           {preview!.isVideo ? <video className="thumb" src={preview!.previewUrl} muted playsInline autoPlay loop /> : <img className="thumb" src={preview!.previewUrl} alt="" />}
-          <div className="thumb-badge pulse"><Icon.Clock /></div>
+          <div className="thumb-badge pulse"><Icon.Clock /><span className="ripple" /></div>
         </div>
         <h1 style={{ fontSize: 26, marginTop: 16 }}>Waiting for approval</h1>
         <p style={{ margin: 0, fontWeight: 600, color: 'var(--ink-2)' }}>{quest ? `Nice hustle! ⭐ ${q!.points} points once it’s approved.` : 'Nice snap! We’ll ping you the second it’s reviewed.'}</p>

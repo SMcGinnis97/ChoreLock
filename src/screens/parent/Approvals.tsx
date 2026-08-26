@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../../lib/store';
 import { Avatar, Icon } from '../../components/ui';
+import { FloatPill } from '../../components/feedback';
 
 const REASONS = ['Not finished', 'Photo unclear', 'Wrong chore', 'Redo it, please'];
 
@@ -16,6 +17,19 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   const [noteText, setNoteText] = useState('');
   const [dx, setDx] = useState(0);
   const startX = useRef<number | null>(null);
+  // Approve feedback: stamp the card / float the points, then commit.
+  const [stamped, setStamped] = useState<string | null>(null);
+  const [questPill, setQuestPill] = useState<string | null>(null);
+  const approveWithStamp = (id: string) => {
+    if (stamped) return;
+    setStamped(id);
+    setTimeout(() => { setStamped(null); s.approve(id); }, 700);
+  };
+  const approveQuestWithPill = (id: string) => {
+    if (questPill) return;
+    setQuestPill(id);
+    setTimeout(() => { setQuestPill(null); s.reviewQuest(id, true); }, 900);
+  };
   const total = queue.length + s.instances.filter((i) => i.status === 'approved' || i.status === 'rejected').length;
 
   if (state === 'loading')
@@ -67,9 +81,10 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
                 ? <video src={q.proofUrl} controls playsInline style={{ width: '100%', borderRadius: 12, maxHeight: 260, background: '#000' }} />
                 : <img src={q.proofUrl} alt="" style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover' }} />)}
               {q.proofNote && <div className="quote">“{q.proofNote}”</div>}
-              <div className="row">
+              <div className="row" style={{ position: 'relative' }}>
+                {questPill === q.id && <FloatPill text={`+${q.points} ⭐`} />}
                 <button className="btn btn--outline-danger" style={{ flex: 1 }} onClick={() => setRejecting({ kind: 'quest', id: q.id })}>Reject</button>
-                <button className="btn btn--success" style={{ flex: 1.4 }} onClick={() => s.reviewQuest(q.id, true)}>Approve · ⭐ {q.points}</button>
+                <button className="btn btn--success" style={{ flex: 1.4 }} onClick={() => approveQuestWithPill(q.id)}>Approve · ⭐ {q.points}</button>
               </div>
             </div>
           );
@@ -140,7 +155,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   const onPointerDown = (e: React.PointerEvent) => { startX.current = e.clientX; };
   const onPointerMove = (e: React.PointerEvent) => { if (startX.current !== null) setDx(e.clientX - startX.current); };
   const onPointerUp = () => {
-    if (dx > 110) s.approve(current.id); else if (dx < -110) setRejecting({ kind: 'chore', id: current.id });
+    if (dx > 110) approveWithStamp(current.id); else if (dx < -110) setRejecting({ kind: 'chore', id: current.id });
     setDx(0); startX.current = null;
   };
 
@@ -157,12 +172,13 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
           <div className="row"><Avatar kid={kid} /><div><div className="approval-title">{kid.name} · {chore.name}</div><div className="kid-sub">{chore.required ? 'Required for unlock' : 'Bonus chore'} · {ordinal(current.attempt)} try</div></div></div>
           {current.note && <div className="quote">“{current.note}”</div>}
         </div>
+        {stamped === current.id && <div className="stamp">APPROVED ✓</div>}
       </div>
       {queue.length > 1 && <div className="stack-peek" />}
       <p className="hint">Swipe right to approve · left to reject</p>
       <div className="row">
-        <button className="btn btn--outline-danger btn--lg" style={{ flex: 1 }} onClick={() => setRejecting({ kind: 'chore', id: current.id })}>Reject</button>
-        <button className="btn btn--success btn--lg" style={{ flex: 1.4 }} onClick={() => s.approve(current.id)}>Approve</button>
+        <button className="btn btn--outline-danger btn--lg" style={{ flex: 1 }} disabled={!!stamped} onClick={() => setRejecting({ kind: 'chore', id: current.id })}>Reject</button>
+        <button className="btn btn--success btn--lg" style={{ flex: 1.4 }} disabled={!!stamped} onClick={() => approveWithStamp(current.id)}>Approve</button>
       </div>
       <p className="hint" style={{ opacity: .6 }}>{total} submissions today</p>
 

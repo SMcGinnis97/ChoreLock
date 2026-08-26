@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import type { ChoreStatus, Kid, LockState } from '../lib/types';
 
@@ -24,7 +24,35 @@ export const Icon = {
   Clock: (p: { size?: number }) => <I {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></I>,
   Flip: (p: { size?: number }) => <I {...p}><path d="M4 8a8 8 0 0 1 14-3l2 2" /><path d="M20 3v4h-4" /><path d="M20 16a8 8 0 0 1-14 3l-2-2" /><path d="M4 21v-4h4" /></I>,
   Phone: (p: { size?: number }) => <I {...p}><rect x="7" y="2" width="10" height="20" rx="2" /><path d="M11 18h2" /></I>,
+  Chart: (p: { size?: number }) => <I {...p}><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-8" /><path d="M22 20H2" /></I>,
 };
+
+/* ---------- Brand (Signal Key mark — Wi-Fi arcs form the key's bow) ---------- */
+/** The ChoreKey glyph. `small` drops one tooth + thickens the stroke for ≤30px tiles. */
+export const KeyGlyph = ({ size = 24, stroke = 'currentColor', small, arcClass }: { size?: number; stroke?: string; small?: boolean; arcClass?: (n: 1 | 2) => string }) => (
+  <svg width={size} height={size * 26 / 24} viewBox="0 0 24 26" fill="none" stroke={stroke} strokeWidth={small ? 2.8 : 2.4} strokeLinecap="round" strokeLinejoin="round">
+    <path className={arcClass?.(2)} d="M5 8.5a9.5 9.5 0 0 1 14 0" />
+    <path className={arcClass?.(1)} d="M8 11.5a5.5 5.5 0 0 1 8 0" />
+    <circle cx="12" cy="15" r="2.1" />
+    <path d="M12 17.1V24" />
+    {small ? <path d="M12 21.5h3.4" /> : <><path d="M12 20.5h2.8" /><path d="M12 23.2h3.8" /></>}
+  </svg>
+);
+
+/** Gradient app-icon tile holding the white glyph. */
+export const LogoTile = ({ size = 104, arcClass }: { size?: number; arcClass?: (n: 1 | 2) => string }) => (
+  <div style={{ width: size, height: size, borderRadius: size * 0.225, background: 'linear-gradient(160deg, #6B6BE0, #4646C6)', display: 'grid', placeItems: 'center', boxShadow: size >= 80 ? '0 10px 24px rgba(70,70,198,.28)' : undefined }}>
+    <KeyGlyph size={Math.round(size * 0.63)} stroke="#fff" small={size <= 34} arcClass={arcClass} />
+  </div>
+);
+
+/** Glyph + "ChoreKey" wordmark lockup. */
+export const Wordmark = ({ size = 30 }: { size?: number }) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: size * 0.4 }}>
+    <KeyGlyph size={Math.round(size * 1.13)} stroke="var(--accent)" />
+    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: size, letterSpacing: '-0.01em', color: 'var(--ink)' }}>ChoreKey</span>
+  </span>
+);
 
 /* ---------- Primitives ---------- */
 export const Avatar = ({ kid, size }: { kid: Kid; size?: 'sm' | 'lg' }) => (
@@ -47,10 +75,12 @@ export const LockBanner = ({ state, kidName, empty }: { state: LockState; kidNam
 
 export const Ring = ({ done, total }: { done: number; total: number }) => {
   const r = 28.5, c = 2 * Math.PI * r, pct = total ? done / total : 0;
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => { const t = requestAnimationFrame(() => setDrawn(true)); return () => cancelAnimationFrame(t); }, []);
   return (
     <svg width="66" height="66" viewBox="0 0 66 66">
       <circle cx="33" cy="33" r={r} stroke="var(--border)" strokeWidth="9" fill="none" />
-      <circle cx="33" cy="33" r={r} stroke={pct >= 1 ? 'var(--ok)' : 'var(--accent)'} strokeWidth="9" fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 33 33)" style={{ transition: 'stroke-dashoffset .4s' }} />
+      <circle cx="33" cy="33" r={r} stroke={pct >= 1 ? 'var(--ok)' : 'var(--accent)'} strokeWidth="9" fill="none" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={drawn ? c * (1 - pct) : c} transform="rotate(-90 33 33)" style={{ transition: 'stroke-dashoffset 1s ease-out' }} />
       <text x="33" y="38" textAnchor="middle" fontSize="16" fontWeight="800" fill="var(--ink)" fontFamily="var(--font-body)">{done}/{total}</text>
     </svg>
   );
@@ -67,6 +97,7 @@ export const ParentTabs = ({ pending }: { pending: number }) => {
   const tabs = [
     { to: '/parent', label: 'Today', icon: <Icon.Home />, end: true },
     { to: '/parent/approvals', label: 'Approvals', icon: <Icon.Checklist />, badge: pending },
+    { to: '/parent/insights', label: 'Insights', icon: <Icon.Chart /> },
     { to: '/parent/chores', label: 'Chores', icon: <Icon.List /> },
     { to: '/parent/settings', label: 'Settings', icon: <Icon.Gear /> },
   ];

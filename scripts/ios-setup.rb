@@ -81,6 +81,19 @@ info['NSPhotoLibraryAddUsageDescription'] ||= 'Not used — ChoreKey only takes 
 info['ITSAppUsesNonExemptEncryption'] = false
 File.write(info_path, info.to_plist)
 
+# ---------- App icon (single 1024 universal, Xcode 14+) ----------
+icon_src = File.join(NATIVE, 'AppIcon-1024.png')
+iconset  = File.join(IOS, 'App', 'Assets.xcassets', 'AppIcon.appiconset')
+if File.exist?(icon_src)
+  FileUtils.mkdir_p(iconset)
+  Dir.glob(File.join(iconset, '*.png')).each { |f| FileUtils.rm(f) }
+  FileUtils.cp(icon_src, File.join(iconset, 'AppIcon-1024.png'))
+  File.write(File.join(iconset, 'Contents.json'), JSON.pretty_generate({
+    'images' => [{ 'filename' => 'AppIcon-1024.png', 'idiom' => 'universal', 'platform' => 'ios', 'size' => '1024x1024' }],
+    'info' => { 'author' => 'xcode', 'version' => 1 },
+  }))
+end
+
 # ---------- Extensions ----------
 EXTENSIONS = [
   { name: 'ChoreLockShield',       point: 'com.apple.ManagedSettingsUI.shield-configuration-service', principal: 'ShieldConfigurationExtension',

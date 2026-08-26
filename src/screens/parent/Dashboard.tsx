@@ -4,6 +4,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { useStore, type QuestDraft } from '../../lib/store';
 import { Avatar, Icon, todayLabel } from '../../components/ui';
+import { PullToRefresh } from '../../components/feedback';
 import type { Kid, ProofMedia } from '../../lib/types';
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const fmtAway = (until: string) => until >= '9999' ? 'until further notice' : `through ${new Date(until + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
 
   return (
+    <PullToRefresh onRefresh={s.reload} caption="Refreshing…">
     <div className="screen">
       <div className="row row--between">
         <div><div className="date">{todayLabel()}</div><h1 style={{ fontSize: 27 }}>Today</h1></div>
@@ -146,6 +148,7 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+    </PullToRefresh>
   );
 }
 
