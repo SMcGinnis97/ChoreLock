@@ -9,12 +9,14 @@
   },
   "bin": {
     "chorelock-agent": "src/main.js",
-    "chorelock-selftest": "bin/selftest.js"
+    "chorelock-selftest": "bin/selftest.js",
+    "chorelock-adguard": "bin/adguard.js"
   },
   "scripts": {
     "start": "node src/main.js",
-    "selftest": "node bin/selftest.js",
-    "once": "node src/main.js --once"
+    "once": "node src/main.js --once",
+    "selftest": "node bin/adguard.js",
+    "selftest:router": "node bin/selftest.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
