@@ -30,6 +30,7 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
   const needVideo = proofType === 'video' || proofType === 'photo_video';
 
   const [mode, setMode] = useState<'photo' | 'video'>(proofType === 'video' ? 'video' : 'photo');
+  const [camErr, setCamErr] = useState<string | null>(null);
   const [photo, setPhotoMedia] = useState<ProofMedia | null>(null);
   const [video, setVideoMedia] = useState<ProofMedia | null>(null);
   const [note, setNote] = useState('');
@@ -47,12 +48,22 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
   const canToggle = quest ? !recording : proofType === 'photo_video' && !recording;
   const needsViewfinder = !current && !submitted && (mode === 'video' || !native);
 
+  // Prime the native camera permission up front so the iOS prompt appears on entry,
+  // and surface any failure instead of dying silently (iPad debugging).
+  useEffect(() => {
+    if (!native) return;
+    Camera.requestPermissions({ permissions: ['camera'] })
+      .then((st) => { if (st.camera === 'denied') setCamErr('Camera access is off for ChoreKey — enable it in Settings > ChoreKey.'); })
+      .catch((e) => setCamErr(`Camera permission check failed: ${(e as Error).message ?? e}`));
+  }, [native]);
+
   useEffect(() => {
     if (!needsViewfinder) return;
     let cancelled = false;
-    navigator.mediaDevices?.getUserMedia({ video: { facingMode: facing }, audio: false })
-      .then((st) => { if (cancelled) { st.getTracks().forEach((t) => t.stop()); return; } streamRef.current = st; if (videoRef.current) videoRef.current.srcObject = st; })
-      .catch(() => {});
+    if (!navigator.mediaDevices?.getUserMedia) { setCamErr('Live viewfinder unavailable on this device.'); return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
+      .then((st) => { if (cancelled) { st.getTracks().forEach((t) => t.stop()); return; } setCamErr(null); streamRef.current = st; if (videoRef.current) videoRef.current.srcObject = st; })
+      .catch((e) => { if (!cancelled) setCamErr(`Camera failed to start: ${(e as Error).message ?? e}`); });
     return () => { cancelled = true; streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; };
   }, [needsViewfinder, facing]);
 
@@ -63,7 +74,14 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
   const capturePhoto = async () => {
     let media: ProofMedia | null = null;
     if (native) {
-      const r = await Camera.getPhoto({ source: CameraSource.Camera, resultType: CameraResultType.DataUrl, quality: 70, width: 1280, correctOrientation: true });
+      let r;
+      try {
+        r = await Camera.getPhoto({ source: CameraSource.Camera, resultType: CameraResultType.DataUrl, quality: 70, width: 1280, correctOrientation: true });
+      } catch (e) {
+        const msg = (e as Error).message ?? String(e);
+        if (!/cancel/i.test(msg)) setCamErr(`Couldn’t open the camera: ${msg}`);
+        return;
+      }
       if (r.dataUrl) media = { blob: await (await fetch(r.dataUrl)).blob(), ext: 'jpg', contentType: 'image/jpeg', previewUrl: r.dataUrl, isVideo: false };
     } else {
       const v = videoRef.current; if (!v) return;
@@ -78,10 +96,18 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
   };
 
   const startRecording = () => {
-    const stream = streamRef.current; if (!stream || recording) return;
+    const stream = streamRef.current;
+    if (!stream) { setCamErr('Camera isn’t running yet — no video stream to record.'); return; }
+    if (recording) return;
     const mp4 = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('video/mp4');
     const mime = mp4 ? 'video/mp4' : 'video/webm';
-    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_500_000 });
+    let rec: MediaRecorder;
+    try {
+      rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_500_000 });
+    } catch (e) {
+      setCamErr(`Recording failed to start: ${(e as Error).message ?? e}`);
+      return;
+    }
     const chunks: Blob[] = [];
     rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     rec.onstop = () => {
@@ -146,6 +172,7 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
         )}
       </div>
       {proofType === 'photo_video' && <p className="hint" style={{ margin: 0, opacity: .7 }}>This chore needs a photo AND a video{photo && !video ? ' — photo done, now the video' : !photo && video ? ' — video done, now the photo' : ''}.</p>}
+      {camErr && <p className="hint" style={{ margin: 0, color: '#F0968A', fontWeight: 700 }}>{camErr}</p>}
       <div className="viewfinder">
         {current
           ? (current.isVideo ? <video src={current.previewUrl} controls autoPlay muted loop playsInline /> : <img src={current.previewUrl} alt="" />)
