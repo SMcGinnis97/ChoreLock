@@ -110,6 +110,43 @@ export interface Summon {
   canceledAt?: string;
 }
 
+/**
+ * A recurring must-do job ("Take the dogs out" every 2 hours) with an escalation ladder:
+ * fire → +lockAfterMin locks the assigned kid → +broadcastAfterMin goes out to every kid →
+ * +lockAllAfterMin locks every present kid. Optional follow-up fires after completion.
+ */
+export interface CriticalTask {
+  id: string;
+  kidId: string; // primary assignee
+  title: string;
+  emoji: string;
+  note?: string;
+  firstFire: string; // "HH:MM" family-local daily anchor
+  repeatMinutes?: number; // unset = once a day
+  windowEnd?: string; // "HH:MM" — no fires after this time
+  lockAfterMin: number;
+  broadcastAfterMin: number;
+  lockAllAfterMin: number;
+  followupTitle?: string; // e.g. "Bring the dogs back in"
+  followupDelayMin: number;
+  active: boolean;
+  nextFireAt?: string; // ISO; unset while a round is in flight
+}
+
+/** One fired round of a critical task (or its follow-up). */
+export interface CriticalInstance {
+  id: string;
+  taskId: string;
+  kidId: string;
+  kind: 'main' | 'followup';
+  title: string;
+  dueAt: string; // ISO fire moment — the escalation clock
+  status: 'scheduled' | 'open' | 'done' | 'canceled';
+  level: number; // 0 fired · 1 kid locked · 2 broadcast · 3 everyone locked
+  doneAt?: string;
+  doneBy?: string; // kid id; unset = a parent marked it done
+}
+
 export interface FamilyParent {
   userId: string;
   name?: string;

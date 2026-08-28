@@ -13,6 +13,8 @@
 //                   it as a communication notification from that parent. Set the APNS_CRITICAL secret to
 //                   '1' once Apple grants the Critical Alerts entitlement to also break through the
 //                   silent switch at full volume.
+//   critical     -> time-sensitive alert for critical-task fires and escalations ("chore" = task title,
+//                   "reason" = escalation message). Sent by private.run_criticals.
 //
 // Secrets (supabase secrets set ...): APNS_KEY (p8 contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (app.chorelock),
 // APNS_ENV ('sandbox' | 'production') — the env tried FIRST; the other is a per-token fallback.
@@ -87,14 +89,19 @@ Deno.serve(async (req) => {
     : kind === 'grounded' ? { title: 'You’re grounded 😔', body: reason ? `${reason} — Wi-Fi is off until it’s lifted.` : 'Wi-Fi is off until it’s lifted. Ask your parent why.' }
     : kind === 'ungrounded' ? { title: 'You’re ungrounded 🎉', body: 'Wi-Fi is back — chores still count.' }
     : kind === 'summon' ? { title: `📢 ${chore}`, body: reason ?? 'It keeps dinging until you tap “On my way!” in ChoreKey.' }
+    : kind === 'critical' ? { title: `🚨 ${chore}`, body: reason ?? 'This one can’t wait — mark it done in ChoreKey.' }
     : { title: 'Sent back', body: `${chore}: ${reason ?? 'take another look'}` };
-  const sound = kind === 'summon' && Deno.env.get('APNS_CRITICAL') === '1'
+  const sound = (kind === 'summon' || kind === 'critical') && Deno.env.get('APNS_CRITICAL') === '1'
     ? { critical: 1, name: 'default', volume: 1.0 } // needs the Critical Alerts entitlement
     : 'default';
   const payload = silent
     ? { aps: { 'content-available': 1 }, kind }
     : {
-        aps: { alert, sound, 'content-available': 1, ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1, 'mutable-content': 1 }) },
+        aps: {
+          alert, sound, 'content-available': 1,
+          ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1, 'mutable-content': 1 }),
+          ...(kind === 'critical' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1 }),
+        },
         kind,
         ...(kind === 'summon' && sender && { senderName: sender }),
       };

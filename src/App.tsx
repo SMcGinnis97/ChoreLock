@@ -15,6 +15,7 @@ import Chores from './screens/parent/Chores';
 import Settings from './screens/parent/Settings';
 import { Avatar, LogoTile, Wordmark } from './components/ui';
 import SummonOverlay from './components/summon';
+import PermissionsGate from './components/permissions';
 
 /** Mock-mode role/kid picker (no backend configured). */
 function Welcome() {
@@ -57,6 +58,7 @@ function AppRoutes({ home }: { home: string }) {
   return (
     <>
     <SummonOverlay />
+    <PermissionsGate />
     <Routes>
       <Route path="/" element={home === '/' ? <Welcome /> : <Navigate to={home} replace />} />
       <Route path="/states" element={<States />} />

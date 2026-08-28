@@ -130,10 +130,21 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func getStatus(_ call: CAPPluginCall) {
-        call.resolve([
-            "authorized": AuthorizationCenter.shared.authorizationStatus == .approved,
-            "shielded": defaults.bool(forKey: shieldedKey),
-        ])
+        Task {
+            // authorizationStatus settles asynchronously after a cold launch, so an
+            // immediate read misreports an authorized device as notDetermined. Poll
+            // briefly (≤1.5s) before answering; a genuinely never-asked device just
+            // stays notDetermined and pays the short wait once.
+            var waited = 0
+            while AuthorizationCenter.shared.authorizationStatus == .notDetermined && waited < 15 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                waited += 1
+            }
+            call.resolve([
+                "authorized": AuthorizationCenter.shared.authorizationStatus == .approved,
+                "shielded": self.defaults.bool(forKey: self.shieldedKey),
+            ])
+        }
     }
 }
 

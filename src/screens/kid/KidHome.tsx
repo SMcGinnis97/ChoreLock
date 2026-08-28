@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isGrounded, useStore } from '../../lib/store';
+import { criticalLateMin, criticalsForKid, isGrounded, useStore } from '../../lib/store';
 import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
 import { isNativeIOS } from '../../native/screenTime';
@@ -137,6 +137,29 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
     <div className="screen">
       {justUnlocked && <Confetti onDone={() => setJustUnlocked(false)} />}
       {Header}
+      {!state && criticalsForKid(s.criticalInstances, kid.id).map((ci) => {
+        const t = s.criticalTasks.find((x) => x.id === ci.taskId);
+        const late = Math.floor(criticalLateMin(ci));
+        const mine = ci.kidId === kid.id;
+        const owner = s.kids.find((k) => k.id === ci.kidId)?.name;
+        return (
+          <div key={ci.id} className="banner" style={{ background: 'var(--danger)', alignItems: 'center' }}>
+            <span style={{ fontSize: 30 }} aria-hidden>{t?.emoji ?? '🚨'}</span>
+            <div className="spacer">
+              <h2>{ci.title}</h2>
+              <p>{mine ? 'Your critical job' : `${owner ?? 'Someone'}’s job — anyone can do it now`}{late > 0 && ` · ${late} min late`}</p>
+              {t && (
+                <p style={{ opacity: .8 }}>
+                  {mine && late < t.lockAfterMin ? `Internet shuts off in ${t.lockAfterMin - late} min`
+                    : late < t.lockAllAfterMin ? `Everyone’s internet goes off in ${t.lockAllAfterMin - late} min`
+                    : 'Everyone is locked until this is done'}
+                </p>
+              )}
+            </div>
+            <button className="btn btn--lg" style={{ background: '#fff', color: 'var(--danger)', fontWeight: 800 }} onClick={() => s.completeCritical(ci.id)}>✓ Done</button>
+          </div>
+        );
+      })}
       {!state && isGrounded(kid)
         ? (
           <div className="banner" style={{ background: 'var(--danger)' }}>

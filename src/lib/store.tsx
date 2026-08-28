@@ -4,7 +4,7 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreInstance, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon } from './types';
+import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon } from './types';
 import { applyLockState } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -15,6 +15,27 @@ export const activeSummon = (list: Summon[], kidId: string) =>
 
 /** True when the kid is currently grounded (locked no matter what). */
 export const isGrounded = (k: Kid | undefined) => !!k?.groundedUntil && new Date(k.groundedUntil).getTime() > Date.now();
+
+/** Minutes an instance is overdue (negative = not due yet). */
+export const criticalLateMin = (ci: CriticalInstance) => (Date.now() - new Date(ci.dueAt).getTime()) / 60_000;
+
+/**
+ * True when an open critical round locks this kid right now: the assignee past
+ * lockAfterMin, or anyone in the family past lockAllAfterMin. Mirrors the
+ * kid_lock_state view; callers handle the absence exemption (checked earlier).
+ */
+export const criticalLocked = (tasks: CriticalTask[], instances: CriticalInstance[], kidId: string) =>
+  instances.some((ci) => {
+    if (ci.status !== 'open') return false;
+    const t = tasks.find((x) => x.id === ci.taskId);
+    if (!t) return false;
+    const late = criticalLateMin(ci);
+    return ci.kidId === kidId ? late >= t.lockAfterMin : late >= t.lockAllAfterMin;
+  });
+
+/** The critical rounds a kid should see on their home screen: theirs, or any once broadcast. */
+export const criticalsForKid = (instances: CriticalInstance[], kidId: string) =>
+  instances.filter((ci) => ci.status === 'open' && (ci.kidId === kidId || ci.level >= 2));
 
 /** True when a required instance blocks Wi-Fi right now (due-time aware). */
 export const blocksNow = (i: ChoreInstance, c: Chore | undefined) => {
@@ -86,11 +107,14 @@ export interface QuestDraft {
   promptMedia: ProofMedia[]; // parent's photos of the task (appended to any existing)
 }
 
+export interface CriticalDraft extends Omit<CriticalTask, 'id' | 'nextFireAt'> { id?: string }
+
 export interface Store {
   role: Role; setRole: (r: Role) => void;
   currentKidId: string; setCurrentKidId: (id: string) => void;
   kids: Kid[]; chores: Chore[]; instances: ChoreInstance[]; quests: SideQuest[]; devices: Device[]; settings: Settings;
   summons: Summon[];
+  criticalTasks: CriticalTask[]; criticalInstances: CriticalInstance[];
   parents: FamilyParent[];
   rewards: Reward[]; rewardClaims: RewardClaim[];
   // derived
@@ -111,6 +135,12 @@ export interface Store {
   callKids: (kidIds: string[], location: string, note?: string, meeting?: boolean) => void;
   ackSummon: (id: string) => void;
   cancelSummon: (id: string) => void;
+  saveCriticalTask: (task: CriticalDraft) => void;
+  deleteCriticalTask: (id: string) => void;
+  /** Mark an open critical round done (kid: theirs or any broadcast one; parent: any). */
+  completeCritical: (instanceId: string) => void;
+  /** Parent-only: dismiss a round without doing it (locks lift, next round still books). */
+  cancelCritical: (instanceId: string) => void;
   saveChore: (chore: Omit<Chore, 'id'> & { id?: string }) => void;
   saveQuest: (quest: QuestDraft) => void;
   claimQuest: (questId: string) => void;
@@ -147,6 +177,8 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
   const [devices, setDevices] = useState(DEVICES);
   const [settings, setSettings] = useState(SETTINGS);
   const [summons, setSummons] = useState<Summon[]>([]);
+  const [criticalTasks, setCriticalTasks] = useState<CriticalTask[]>([]);
+  const [criticalInstances, setCriticalInstances] = useState<CriticalInstance[]>([]);
 
   const store = useMemo<Store>(() => {
     const requiredProgress = (kidId: string) => {
@@ -157,6 +189,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       const kid = kids.find((k) => k.id === kidId);
       if (isGrounded(kid)) return 'locked';
       if (kid?.absentUntil && kid.absentUntil >= today()) return 'unlocked';
+      if (criticalLocked(criticalTasks, criticalInstances, kidId)) return 'locked';
       if (kid?.override === 'unlock') return 'unlocked';
       if (kid?.override === 'lock') return 'locked';
       return instances.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId))) ? 'locked' : 'unlocked';
@@ -172,6 +205,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
 
     return {
       role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings, summons,
+      criticalTasks, criticalInstances,
       parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
       rewards, rewardClaims,
       kidLockState, requiredProgress,
@@ -224,6 +258,22 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
         ]),
       ackSummon: (id) => setSummons((cur) => cur.map((x) => (x.id === id ? { ...x, acknowledgedAt: new Date().toISOString() } : x))),
       cancelSummon: (id) => setSummons((cur) => cur.map((x) => (x.id === id ? { ...x, canceledAt: new Date().toISOString() } : x))),
+      // Mock criticals: save/complete/cancel locally; the mock fires a round immediately on
+      // save so the screens are exercisable without the real cron engine.
+      saveCriticalTask: (t) =>
+        setCriticalTasks((cur) => {
+          if (t.id) return cur.map((x) => (x.id === t.id ? { ...x, ...t, id: x.id } : x));
+          const id = `ct${Date.now()}`;
+          setCriticalInstances((ci) => [...ci, { id: `cti${Date.now()}`, taskId: id, kidId: t.kidId, kind: 'main', title: t.title, dueAt: new Date().toISOString(), status: 'open', level: 0 }]);
+          return [...cur, { ...t, id }];
+        }),
+      deleteCriticalTask: (id) => {
+        setCriticalTasks((cur) => cur.filter((t) => t.id !== id));
+        setCriticalInstances((cur) => cur.filter((ci) => ci.taskId !== id));
+      },
+      completeCritical: (id) =>
+        setCriticalInstances((cur) => cur.map((ci) => (ci.id === id ? { ...ci, status: 'done', doneAt: new Date().toISOString(), doneBy: role === 'kid' ? currentKidId : undefined } : ci))),
+      cancelCritical: (id) => setCriticalInstances((cur) => cur.map((ci) => (ci.id === id ? { ...ci, status: 'canceled' } : ci))),
       setGrounding: (kidId, until, reason) =>
         setKids((cur) => {
           const next = cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k));
@@ -250,7 +300,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };
-  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons]);
+  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons, criticalTasks, criticalInstances]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

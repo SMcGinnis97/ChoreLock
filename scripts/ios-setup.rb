@@ -82,6 +82,9 @@ info_path = File.join(IOS, 'App', 'Info.plist')
 info = Plist.parse_xml(info_path)
 info['UIBackgroundModes'] = (Array(info['UIBackgroundModes']) | ['remote-notification'])
 info['NSCameraUsageDescription'] ||= 'ChoreKey uses the camera to snap proof that a chore is done.'
+# The Capacitor camera plugin refuses to open at all without BOTH photo-library keys,
+# even though ChoreKey never touches the roll (live capture only).
+info['NSPhotoLibraryUsageDescription'] ||= 'Not used — ChoreKey only takes live photos.'
 info['NSPhotoLibraryAddUsageDescription'] ||= 'Not used — ChoreKey only takes live photos.'
 info['ITSAppUsesNonExemptEncryption'] = false
 # Communication notifications: declare the message intent so summon pushes can render as from the parent.
