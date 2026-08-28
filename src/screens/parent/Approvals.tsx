@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useStore } from '../../lib/store';
 import { Avatar, Icon } from '../../components/ui';
 import { FloatPill } from '../../components/feedback';
+import { zoomMedia } from '../../components/lightbox';
 
 const REASONS = ['Not finished', 'Photo unclear', 'Wrong chore', 'Redo it, please'];
 
@@ -79,7 +80,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
               </div>
               {q.proofUrl && (q.proofIsVideo
                 ? <video src={q.proofUrl} controls playsInline style={{ width: '100%', borderRadius: 12, maxHeight: 260, background: '#000' }} />
-                : <img src={q.proofUrl} alt="" style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover' }} />)}
+                : <img src={q.proofUrl} alt="" style={{ width: '100%', borderRadius: 12, maxHeight: 260, objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => zoomMedia([q.proofUrl])} />)}
               {q.proofNote && <div className="quote">“{q.proofNote}”</div>}
               <div className="row" style={{ position: 'relative' }}>
                 {questPill === q.id && <FloatPill text={`+${q.points} ⭐`} />}
@@ -123,7 +124,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
           const k = s.kids.find((x) => x.id === i.kidId)!, c = s.chores.find((x) => x.id === i.choreId)!;
           return (
             <div key={i.id} className="card row" style={{ padding: 10 }}>
-              <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--track)' }}>
+              <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--track)', cursor: 'zoom-in' }} onClick={() => zoomMedia([i.photoUrl, i.videoUrl && { src: i.videoUrl, isVideo: true }])}>
                 {i.photoUrl ? <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : i.videoUrl ? <video src={i.videoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
               </div>
               <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} · {c.name}</div><div className="kid-sub">{i.submittedAt ?? 'today'}{s.settings.autoApprove && i.attempt === 1 ? ' · auto-approved' : ''}</div></div>
@@ -164,7 +165,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
       <div className="row row--between"><h1>Approvals</h1><span className="chip chip--todo">1 of {queue.length}</span></div>
       <div className="approval-card" style={{ transform: `translateX(${dx}px) rotate(${dx / 30}deg)`, transition: startX.current === null ? 'transform .15s' : 'none', touchAction: 'pan-y' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
         <div className="approval-photo">
-          {current.photoUrl ? <img src={current.photoUrl} alt="" draggable={false} /> : current.videoUrl ? <video src={current.videoUrl} controls autoPlay muted loop playsInline draggable={false} /> : null}
+          {current.photoUrl ? <img src={current.photoUrl} alt="" draggable={false} style={{ cursor: 'zoom-in' }} onClick={() => { if (Math.abs(dx) < 8) zoomMedia([current.photoUrl]); }} /> : current.videoUrl ? <video src={current.videoUrl} controls autoPlay muted loop playsInline draggable={false} /> : null}
           <span className="timestamp">{current.submittedAt}</span>
         </div>
         {current.photoUrl && current.videoUrl && <video src={current.videoUrl} controls muted playsInline style={{ width: '100%', maxHeight: 200, background: '#000' }} />}

@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { isGrounded, useStore, type QuestDraft } from '../../lib/store';
 import { Avatar, Icon, todayLabel } from '../../components/ui';
 import { PullToRefresh } from '../../components/feedback';
+import { zoomMedia } from '../../components/lightbox';
 import type { Kid, ProofMedia } from '../../lib/types';
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -109,7 +110,7 @@ export default function Dashboard() {
               const k = s.kids.find((x) => x.id === i.kidId)!, c = s.chores.find((x) => x.id === i.choreId)!;
               return (
                 <div key={i.id} className="card row" style={{ padding: 10 }}>
-                  <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'repeating-linear-gradient(135deg,#D8D4CC 0 8px,#E8E5DF 8px 16px)' }}>{i.photoUrl ? <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : i.videoUrl ? <video src={i.videoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}</div>
+                  <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'repeating-linear-gradient(135deg,#D8D4CC 0 8px,#E8E5DF 8px 16px)', cursor: 'zoom-in' }} onClick={() => zoomMedia([i.photoUrl, i.videoUrl && { src: i.videoUrl, isVideo: true }])}>{i.photoUrl ? <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : i.videoUrl ? <video src={i.videoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}</div>
                   <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} · {c.name}</div><div className="kid-sub">{i.submittedAt} · attempt {i.attempt}</div></div>
                   <button className="icon-btn" style={{ background: 'var(--danger-tint)', color: 'var(--danger)' }} onClick={() => nav('/parent/approvals')}><Icon.X size={20} /></button>
                   <button className="icon-btn" style={{ background: 'var(--ok-tint)', color: 'var(--ok-text)' }} onClick={() => s.approve(i.id)}><Icon.Check size={20} /></button>
@@ -127,7 +128,7 @@ export default function Dashboard() {
           const k = q.kidId ? s.kids.find((x) => x.id === q.kidId) : null;
           return (
             <div key={q.id} className="card row" style={{ padding: 12 }}>
-              {q.promptUrls[0] && <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', flexShrink: 0, position: 'relative' }}><img src={q.promptUrls[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{q.promptUrls.length > 1 && <span className="chip chip--todo" style={{ position: 'absolute', right: 2, bottom: 2, padding: '1px 5px', fontSize: 10 }}>+{q.promptUrls.length - 1}</span>}</div>}
+              {q.promptUrls[0] && <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', flexShrink: 0, position: 'relative', cursor: 'zoom-in' }} onClick={() => zoomMedia(q.promptUrls)}><img src={q.promptUrls[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{q.promptUrls.length > 1 && <span className="chip chip--todo" style={{ position: 'absolute', right: 2, bottom: 2, padding: '1px 5px', fontSize: 10 }}>+{q.promptUrls.length - 1}</span>}</div>}
               <div className="spacer">
                 <div style={{ fontWeight: 800 }}>{q.title} <span className="chip chip--bonus">⭐ {q.points}</span></div>
                 <div className="kid-sub">{q.status === 'open' ? 'Open — first kid to claim it' : q.status === 'submitted' ? `${k?.name ?? '?'} submitted proof` : `${k?.name ?? '?'} is on it`}</div>
@@ -314,7 +315,7 @@ function QuestSheet({ draft, onChange, onClose, onSave }: { draft: QuestDraft; o
           <div className="row" style={{ gap: 8, overflowX: 'auto' }}>
             {draft.promptMedia.map((m, n) => (
               <div key={n} style={{ position: 'relative', flexShrink: 0 }}>
-                <img src={m.previewUrl} alt="" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12 }} />
+                <img src={m.previewUrl} alt="" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12, cursor: 'zoom-in' }} onClick={() => zoomMedia(draft.promptMedia.map((x) => x.previewUrl), n)} />
                 <button className="icon-btn" style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, background: 'var(--danger)', color: '#fff' }} onClick={() => set({ promptMedia: draft.promptMedia.filter((_, i) => i !== n) })}>×</button>
               </div>
             ))}

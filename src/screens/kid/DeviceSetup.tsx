@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Icon } from '../../components/ui';
-import ScreenTime from '../../native/screenTime';
+import ScreenTime, { applyLockState } from '../../native/screenTime';
+import { useStore } from '../../lib/store';
 
 /**
  * Parent-gated Screen Time setup on the KID's device. Apple's blocked-apps selection is
@@ -9,18 +10,32 @@ import ScreenTime from '../../native/screenTime';
  * parent code (Settings → Parents on their own phone), then authorizes + picks apps here.
  */
 export default function DeviceSetup({ onClose }: { onClose: () => void }) {
+  const s = useStore();
   const [unlocked, setUnlocked] = useState(false);
   const [codeInput, setCodeInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [st, setSt] = useState<{ authorized: boolean; shielded: boolean } | null>(null);
   const [sel, setSel] = useState<{ appCount: number; categoryCount: number; webDomainCount: number } | null>(null);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (!unlocked) return;
     ScreenTime.getStatus().then(setSt).catch(() => {});
     ScreenTime.getSelectionSummary().then(setSel).catch(() => {});
   }, [unlocked]);
+
+  // Prove the shield end-to-end: force it up for 60s, then restore the real state.
+  const testShield = async () => {
+    setTesting(true);
+    await ScreenTime.setShield({ enabled: true, title: 'Shield test 🔒', subtitle: 'ChoreKey is testing app blocking — back in a minute.' }).catch(() => {});
+    setSt(await ScreenTime.getStatus().catch(() => null));
+    setTimeout(() => {
+      void applyLockState(s.currentKidId ? s.kidLockState(s.currentKidId) : 'unlocked');
+      setTesting(false);
+      void ScreenTime.getStatus().then(setSt).catch(() => {});
+    }, 60_000);
+  };
 
   const verify = async () => {
     setBusy(true); setErr(null);
@@ -56,12 +71,19 @@ export default function DeviceSetup({ onClose }: { onClose: () => void }) {
                 <div className="spacer"><div className="title">Authorization</div><div className="sub">{st?.authorized ? 'Authorized — ChoreKey can shield apps here' : 'Not authorized yet'}</div></div>
                 {!st?.authorized && <button className="btn btn--tint" onClick={async () => { try { await ScreenTime.requestAuthorization(); setSt(await ScreenTime.getStatus()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>Authorize</button>}
               </div>
-              <button className="group-row" disabled={!st?.authorized} onClick={async () => { try { setSel(await ScreenTime.pickBlockedApps()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>
+              <button className="group-row" disabled={!st?.authorized} onClick={async () => { try { setSel(await ScreenTime.pickBlockedApps()); setSt(await ScreenTime.getStatus()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>
                 <div className="spacer"><div className="title">Blocked while locked</div><div className="sub">{sel && (sel.appCount + sel.categoryCount + sel.webDomainCount) > 0 ? `${sel.appCount} apps · ${sel.categoryCount} categories · ${sel.webDomainCount} sites` : st?.authorized ? 'Choose the apps that lock on this phone' : 'Authorize first'}</div></div>
                 <span style={{ color: 'var(--ink-3)' }}><Icon.Chevron /></span>
               </button>
+              <div className="group-row">
+                <div className="spacer">
+                  <div className="title">Shield right now</div>
+                  <div className="sub">{st?.shielded ? 'Up — the picked apps should be blocked' : 'Down — apps are open'}{s.currentKidId ? ` · ChoreKey says ${s.kidLockState(s.currentKidId)}` : ''}</div>
+                </div>
+                <button className="btn btn--tint" disabled={!st?.authorized || testing} onClick={testShield}>{testing ? 'Testing 60s…' : 'Test block'}</button>
+              </div>
             </div>
-            <p className="hint" style={{ textAlign: 'left', margin: 0 }}>Tip: set a Screen Time passcode in iOS Settings so this can’t be undone without you.</p>
+            <p className="hint" style={{ textAlign: 'left', margin: 0 }}>“Test block” shields the picked apps for one minute so you can watch it work, then puts the real state back. Tip: set a Screen Time passcode in iOS Settings so this can’t be undone without you.</p>
             <button className="btn btn--primary" onClick={onClose}>Done</button>
           </>
         )}

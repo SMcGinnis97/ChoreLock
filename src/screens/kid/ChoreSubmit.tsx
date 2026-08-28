@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Camera } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { useStore } from '../../lib/store';
 import { Icon } from '../../components/ui';
@@ -46,7 +46,9 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
   const current = mode === 'photo' ? photo : video;
   const ready = quest ? !!(photo || video) : (!needPhoto || !!photo) && (!needVideo || !!video);
   const canToggle = quest ? !recording : proofType === 'photo_video' && !recording;
-  const needsViewfinder = !current && !submitted && (mode === 'video' || !native);
+  // Photos and videos both use the in-app viewfinder — the system camera sheet
+  // broke the capture flow's look (worst on iPad, where it presents as a popover).
+  const needsViewfinder = !current && !submitted;
 
   // Prime the native camera permission up front so the iOS prompt appears on entry,
   // and surface any failure instead of dying silently (iPad debugging).
@@ -62,7 +64,12 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
     let cancelled = false;
     if (!navigator.mediaDevices?.getUserMedia) { setCamErr('Live viewfinder unavailable on this device.'); return; }
     navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
-      .then((st) => { if (cancelled) { st.getTracks().forEach((t) => t.stop()); return; } setCamErr(null); streamRef.current = st; if (videoRef.current) videoRef.current.srcObject = st; })
+      .then((st) => {
+        if (cancelled) { st.getTracks().forEach((t) => t.stop()); return; }
+        setCamErr(null); streamRef.current = st;
+        // WebKit sometimes ignores autoplay on srcObject swaps — kick playback explicitly.
+        if (videoRef.current) { videoRef.current.srcObject = st; void videoRef.current.play().catch(() => {}); }
+      })
       .catch((e) => { if (!cancelled) setCamErr(`Camera failed to start: ${(e as Error).message ?? e}`); });
     return () => { cancelled = true; streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; };
   }, [needsViewfinder, facing]);
@@ -72,25 +79,12 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
   if ((quest && !q) || (!quest && (!inst || !chore))) return <div className="screen"><p>{quest ? 'Quest' : 'Chore'} not found.</p></div>;
 
   const capturePhoto = async () => {
-    let media: ProofMedia | null = null;
-    if (native) {
-      let r;
-      try {
-        r = await Camera.getPhoto({ source: CameraSource.Camera, resultType: CameraResultType.DataUrl, quality: 70, width: 1280, correctOrientation: true });
-      } catch (e) {
-        const msg = (e as Error).message ?? String(e);
-        if (!/cancel/i.test(msg)) setCamErr(`Couldn’t open the camera: ${msg}`);
-        return;
-      }
-      if (r.dataUrl) media = { blob: await (await fetch(r.dataUrl)).blob(), ext: 'jpg', contentType: 'image/jpeg', previewUrl: r.dataUrl, isVideo: false };
-    } else {
-      const v = videoRef.current; if (!v) return;
-      const cv = document.createElement('canvas'); cv.width = v.videoWidth || 720; cv.height = v.videoHeight || 960;
-      cv.getContext('2d')!.drawImage(v, 0, 0);
-      const dataUrl = cv.toDataURL('image/jpeg', 0.8);
-      media = { blob: await (await fetch(dataUrl)).blob(), ext: 'jpg', contentType: 'image/jpeg', previewUrl: dataUrl, isVideo: false };
-    }
-    if (!media) return;
+    const v = videoRef.current;
+    if (!v || !streamRef.current) { setCamErr('Camera isn’t running yet — give it a second.'); return; }
+    const cv = document.createElement('canvas'); cv.width = v.videoWidth || 720; cv.height = v.videoHeight || 960;
+    cv.getContext('2d')!.drawImage(v, 0, 0);
+    const dataUrl = cv.toDataURL('image/jpeg', 0.8);
+    const media: ProofMedia = { blob: await (await fetch(dataUrl)).blob(), ext: 'jpg', contentType: 'image/jpeg', previewUrl: dataUrl, isVideo: false };
     setPhotoMedia(media);
     if (needVideo && !video && !quest) setMode('video');
   };
@@ -176,9 +170,7 @@ export default function ChoreSubmit({ quest }: { quest?: boolean }) {
       <div className="viewfinder">
         {current
           ? (current.isVideo ? <video src={current.previewUrl} controls autoPlay muted loop playsInline /> : <img src={current.previewUrl} alt="" />)
-          : needsViewfinder
-            ? <video ref={videoRef} autoPlay playsInline muted />
-            : <div style={{ display: 'grid', placeItems: 'center', height: '100%', opacity: .6 }}>Tap the shutter to open the camera</div>}
+          : <video ref={videoRef} autoPlay playsInline muted />}
         {recording && <span className="timestamp" style={{ background: 'var(--danger, #C0392B)' }}>● 0:{String(secondsLeft).padStart(2, '0')}</span>}
         <span className="corner tl" /><span className="corner tr" /><span className="corner bl" /><span className="corner br" />
       </div>

@@ -16,6 +16,7 @@ import Settings from './screens/parent/Settings';
 import { Avatar, LogoTile, Wordmark } from './components/ui';
 import SummonOverlay from './components/summon';
 import PermissionsGate from './components/permissions';
+import LightboxHost from './components/lightbox';
 
 /** Mock-mode role/kid picker (no backend configured). */
 function Welcome() {
@@ -59,6 +60,7 @@ function AppRoutes({ home }: { home: string }) {
     <>
     <SummonOverlay />
     <PermissionsGate />
+    <LightboxHost />
     <Routes>
       <Route path="/" element={home === '/' ? <Welcome /> : <Navigate to={home} replace />} />
       <Route path="/states" element={<States />} />

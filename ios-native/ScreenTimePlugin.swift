@@ -62,6 +62,10 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
             let picker = PickerHost(selection: selection) { result in
                 selection = result
                 self.saveSelection(result)
+                // If the shield is currently up it was built from the OLD selection —
+                // re-apply immediately so the new picks take effect without waiting
+                // for the next locked/unlocked transition.
+                if self.defaults.bool(forKey: self.shieldedKey) { self.applyShield(enabled: true) }
                 self.bridge?.viewController?.dismiss(animated: true)
                 call.resolve(self.summary(result))
             }

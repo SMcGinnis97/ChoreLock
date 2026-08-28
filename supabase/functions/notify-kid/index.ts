@@ -39,7 +39,9 @@ let cached: { jwt: string; at: number } | null = null;
 async function apnsJwt() {
   const now = Math.floor(Date.now() / 1000);
   if (cached && now - cached.at < 2400) return cached.jwt; // Apple: reuse 20–60 min
-  const pem = APNS_KEY.replace(/-----[A-Z ]+-----|\s/g, '');
+  // Tolerate secrets stored with escaped newlines; log only shape, never material.
+  const pem = APNS_KEY.replace(/\\n/g, '\n').replace(/-----[A-Z ]+-----|\s/g, '');
+  console.log('[apns] key shape', JSON.stringify({ rawLen: APNS_KEY.length, hasBegin: APNS_KEY.includes('BEGIN'), hasEscapedN: APNS_KEY.includes('\\n'), b64Len: pem.length, keyId: APNS_KEY_ID }));
   const key = await crypto.subtle.importKey('pkcs8', Uint8Array.from(atob(pem), (c) => c.charCodeAt(0)), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
   const h = b64url(JSON.stringify({ alg: 'ES256', kid: APNS_KEY_ID }));
   const p = b64url(JSON.stringify({ iss: APNS_TEAM_ID, iat: now }));

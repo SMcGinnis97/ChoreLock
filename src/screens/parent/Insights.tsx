@@ -130,7 +130,7 @@ export default function Insights() {
       </div>
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div className="section-label" style={{ margin: 0 }}>When proof comes in</div>
+        <div className="section-label" style={{ margin: 0 }}>Busiest chore times</div>
         <div className="heat-strip">
           {cur.hourBuckets.map((n, i) => <i key={i} style={{ opacity: 0.12 + 0.88 * (n / maxBucket) }} />)}
         </div>

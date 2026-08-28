@@ -215,7 +215,8 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         } catch (e) { setError((e as Error).message); return; }
         setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'submitted', photoUrl: proof.photo?.previewUrl, videoUrl: proof.video?.previewUrl, note } : i)));
         // Always 'submitted' — a server trigger auto-approves first attempts when the family setting is on.
-        await sb().from('chore_instances').update({ status: 'submitted', ...(photoPath && { photo_path: photoPath }), ...(videoPath && { video_path: videoPath }), note: note ?? null, submitted_at: new Date().toISOString() }).eq('id', id);
+        const { error: se } = await sb().from('chore_instances').update({ status: 'submitted', ...(photoPath && { photo_path: photoPath }), ...(videoPath && { video_path: videoPath }), note: note ?? null, submitted_at: new Date().toISOString() }).eq('id', id);
+        if (se) { setError(`Submit didn’t save: ${se.message}`); await load(); }
       },
       approve: async (id) => {
         setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'approved', rejectionReason: undefined } : i)));
@@ -232,11 +233,13 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       },
       override: async (kidId, mode) => {
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, override: mode } : k)));
-        await sb().rpc('set_override', { p_kid: kidId, mode });
+        const { error: e } = await sb().rpc('set_override', { p_kid: kidId, mode });
+        if (e) { setError(`Override didn’t save: ${e.message}`); await load(); }
       },
       setAbsent: async (kidId, until) => {
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, absentUntil: until ?? undefined } : k)));
-        await sb().from('kids').update({ absent_until: until }).eq('id', kidId);
+        const { error: e } = await sb().from('kids').update({ absent_until: until }).eq('id', kidId);
+        if (e) { setError(`Away didn’t save: ${e.message}`); await load(); }
       },
       callKids: async (kidIds, location, note, meeting) => {
         await sb().rpc('call_kids', { p_kids: kidIds, p_location: location, p_note: note ?? null, p_meeting: !!meeting });
@@ -277,7 +280,8 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       },
       setGrounding: async (kidId, until, reason) => {
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k)));
-        await sb().rpc('set_grounding', { p_kid: kidId, p_until: until, p_reason: reason ?? null });
+        const { error: e } = await sb().rpc('set_grounding', { p_kid: kidId, p_until: until, p_reason: reason ?? null });
+        if (e) { setError(`Grounding didn’t save: ${e.message}`); await load(); }
       },
       saveChore: async (chore) => {
         const row = { family_id: identity.familyId, name: chore.name, emoji: chore.emoji, instruction: chore.instruction || null, recurrence: chore.recurrence, days: chore.days, rotation: chore.rotation, due_time: chore.dueTime || null, required: chore.required, photo_proof: chore.photoProof };

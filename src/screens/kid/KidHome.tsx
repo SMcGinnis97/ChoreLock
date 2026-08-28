@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { criticalLateMin, criticalsForKid, isGrounded, useStore } from '../../lib/store';
 import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
+import { zoomMedia } from '../../components/lightbox';
 import { isNativeIOS } from '../../native/screenTime';
 import { fmtDue } from '../parent/Chores';
 import DeviceSetup from './DeviceSetup';
@@ -89,7 +90,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
                 {q.status === 'rejected' && q.rejectionReason ? <div className="chore-sub chore-sub--reject">“{q.rejectionReason}”</div> : q.note ? <div className="chore-sub">{q.note}</div> : <div className="chore-sub">Worth {q.points} points</div>}
               </div>
               {actionable ? <span className="btn btn--pill">📷 Snap it</span> : <span className="chip chip--submitted">Submitted</span>}
-              {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />)}</div>}
+              {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); zoomMedia(q.promptUrls, n); }} />)}</div>}
             </button>
           );
         })}
@@ -101,7 +102,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
               <div className="chore-sub">{q.note ? `${q.note} · ` : ''}Worth {q.points} points — first to claim it!</div>
             </div>
             <button className="btn btn--pill" onClick={() => s.claimQuest(q.id)}>I got this</button>
-            {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />)}</div>}
+            {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }} onClick={() => zoomMedia(q.promptUrls, n)} />)}</div>}
           </div>
         ))}
       </div>
