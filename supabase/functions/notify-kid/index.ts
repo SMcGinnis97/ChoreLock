@@ -15,7 +15,7 @@
 //                   silent switch at full volume.
 //
 // Secrets (supabase secrets set ...): APNS_KEY (p8 contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (app.chorelock),
-// APNS_ENV ('sandbox' | 'production').
+// APNS_ENV ('sandbox' | 'production') — the env tried FIRST; the other is a per-token fallback.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -23,7 +23,12 @@ const APNS_KEY = Deno.env.get('APNS_KEY')!;
 const APNS_KEY_ID = Deno.env.get('APNS_KEY_ID')!;
 const APNS_TEAM_ID = Deno.env.get('APNS_TEAM_ID')!;
 const BUNDLE_ID = Deno.env.get('APNS_BUNDLE_ID') ?? 'app.chorelock';
-const HOST = Deno.env.get('APNS_ENV') === 'production' ? 'https://api.push.apple.com' : 'https://api.sandbox.push.apple.com';
+// Preferred env first, other env as fallback: dev-signed builds carry sandbox
+// tokens while TestFlight/App Store builds carry production tokens, and both
+// kinds can be live at once. A token is only unregistered when BOTH envs reject it.
+const PROD = 'https://api.push.apple.com';
+const SANDBOX = 'https://api.sandbox.push.apple.com';
+const HOSTS = Deno.env.get('APNS_ENV') === 'production' ? [PROD, SANDBOX] : [SANDBOX, PROD];
 
 const b64url = (b: ArrayBuffer | string) =>
   btoa(typeof b === 'string' ? b : String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -41,19 +46,27 @@ async function apnsJwt() {
   return cached.jwt;
 }
 
+const isTokenError = (r: { status: number; body: string }) =>
+  r.status === 410 || r.body.includes('BadDeviceToken') || r.body.includes('Unregistered') || r.body.includes('DeviceTokenNotForTopic');
+
 async function send(token: string, payload: Record<string, unknown>, silent: boolean) {
-  const res = await fetch(`${HOST}/3/device/${token}`, {
-    method: 'POST',
-    headers: {
-      authorization: `bearer ${await apnsJwt()}`,
-      'apns-topic': BUNDLE_ID,
-      'apns-push-type': silent ? 'background' : 'alert',
-      'apns-priority': silent ? '5' : '10',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  return { status: res.status, body: res.status === 200 ? '' : await res.text() };
+  let last = { status: 0, body: '' };
+  for (const host of HOSTS) {
+    const res = await fetch(`${host}/3/device/${token}`, {
+      method: 'POST',
+      headers: {
+        authorization: `bearer ${await apnsJwt()}`,
+        'apns-topic': BUNDLE_ID,
+        'apns-push-type': silent ? 'background' : 'alert',
+        'apns-priority': silent ? '5' : '10',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    last = { status: res.status, body: res.status === 200 ? '' : await res.text() };
+    if (!isTokenError(last)) return last; // success, or a non-token error the other env won't fix
+  }
+  return last;
 }
 
 Deno.serve(async (req) => {
@@ -88,7 +101,7 @@ Deno.serve(async (req) => {
 
   const results = await Promise.all((devices ?? []).map(async (d) => {
     const r = await send(d.push_token!, payload, silent);
-    if (r.status === 410 || r.body.includes('BadDeviceToken') || r.body.includes('Unregistered')) await sb.from('devices').update({ push_token: null }).eq('id', d.id);
+    if (isTokenError(r)) await sb.from('devices').update({ push_token: null }).eq('id', d.id);
     return r.status;
   }));
   return Response.json({ sent: results.filter((s) => s === 200).length, total: results.length });

@@ -65,6 +65,11 @@ File.write(storyboard, sb)
 app_group.new_file('App.entitlements') unless app_group.files.any? { |f| f.path == 'App.entitlements' }
 
 set_all(app, {
+  # SPM links the plugin packages as static libraries and nothing in the app
+  # references their classes by symbol, so without -ObjC the linker strips them
+  # and Capacitor's packageClassList registration (NSClassFromString) silently
+  # skips every plugin — no camera/push/SIWA, and no permission prompts.
+  'OTHER_LDFLAGS' => ['$(inherited)', '-ObjC'],
   'CODE_SIGN_ENTITLEMENTS' => 'App/App.entitlements',
   'DEVELOPMENT_TEAM' => TEAM,
   'IPHONEOS_DEPLOYMENT_TARGET' => DEPLOY,
