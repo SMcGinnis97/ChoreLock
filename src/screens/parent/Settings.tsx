@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useStore } from '../../lib/store';
+import { balanceCents, fmtMoney, useStore } from '../../lib/store';
 import { Avatar, Icon, Switch } from '../../components/ui';
 import ScreenTime, { isNativeIOS } from '../../native/screenTime';
 import type { Device, Kid } from '../../lib/types';
@@ -135,6 +135,60 @@ export default function Settings() {
       </div>
       <p className="hint" style={{ textAlign: 'left' }}>Shared devices turn on only after <strong>every</strong> kid’s required chores are approved.</p>
       <p className="hint" style={{ textAlign: 'left' }}>iPhones and iPads register themselves when {'{'}kid{'}'} signs into ChoreKey on them. Add other devices by MAC address for router blocking.</p>
+
+      <div className="section-label">💵 Allowance</div>
+      <div className="group">
+        <div className="group-row">
+          <div className="spacer"><div className="title">Streak bonus</div><div className="sub">Pays automatically every time a streak hits the mark</div></div>
+          <Switch on={!!s.settings.streakRewardDays} onChange={(v) => s.updateSettings(v ? { streakRewardDays: 7, streakRewardCents: s.settings.streakRewardCents ?? 500 } : { streakRewardDays: undefined, streakRewardCents: undefined })} />
+        </div>
+        {!!s.settings.streakRewardDays && (
+          <div className="group-row">
+            <span className="sub">Every</span>
+            <input className="field" type="number" min={2} style={{ width: 64, textAlign: 'center' }} value={s.settings.streakRewardDays}
+              onChange={(e) => s.updateSettings({ streakRewardDays: Math.max(2, Number(e.target.value) || 7) })} />
+            <span className="sub">days pays $</span>
+            <input className="field" type="number" min={0.25} step={0.25} style={{ width: 84, textAlign: 'center' }} value={(s.settings.streakRewardCents ?? 500) / 100}
+              onChange={(e) => s.updateSettings({ streakRewardCents: Math.max(25, Math.round(Number(e.target.value || 0) * 100)) })} />
+          </div>
+        )}
+        {s.kids.map((k) => {
+          const bal = balanceCents(s.moneyLedger, k.id);
+          return (
+            <div key={k.id} className="group-row">
+              <Avatar kid={k} size="sm" />
+              <div className="spacer"><div className="title">{k.name}</div><div className="sub">stash: {fmtMoney(bal)}</div></div>
+              {bal > 0 && <button className="btn btn--tint" onClick={() => { if (confirm(`Mark ${fmtMoney(bal)} paid to ${k.name}? This zeroes their stash.`)) s.recordMoney(k.id, -bal, 'payout', 'Paid out'); }}>Mark paid</button>}
+            </div>
+          );
+        })}
+      </div>
+      <p className="hint" style={{ textAlign: 'left' }}>Side quests can also pay money instead of points — pick 💵 when you drop one. “Mark paid” records the hand-over of real cash.</p>
+
+      <div className="section-label">🌙 Night watch</div>
+      <div className="group">
+        <div className="group-row">
+          <div className="spacer"><div className="title">Watch the night window</div><div className="sub">Kid devices report anonymous flags: blocked-app use at night, first screen use in the morning. Never which app.</div></div>
+          <Switch on={!!s.settings.nightStart} onChange={(v) => s.updateSettings(v ? { nightStart: '22:00', nightEnd: '06:00' } : { nightStart: undefined, nightEnd: undefined })} />
+        </div>
+        {!!s.settings.nightStart && (
+          <>
+            <div className="group-row">
+              <span className="sub">Quiet hours</span>
+              <input className="field" type="time" style={{ padding: 8 }} value={s.settings.nightStart} onChange={(e) => s.updateSettings({ nightStart: e.target.value || '22:00' })} />
+              <span className="sub">to</span>
+              <input className="field" type="time" style={{ padding: 8 }} value={s.settings.nightEnd ?? '06:00'} onChange={(e) => s.updateSettings({ nightEnd: e.target.value || '06:00' })} />
+            </div>
+            <div className="group-row">
+              <span className="sub">Flag after</span>
+              <input className="field" type="number" min={5} style={{ width: 72, textAlign: 'center' }} value={s.settings.nightThresholdMin ?? 15}
+                onChange={(e) => s.updateSettings({ nightThresholdMin: Math.max(5, Number(e.target.value) || 15) })} />
+              <span className="sub">min of watched-app use in the window</span>
+            </div>
+          </>
+        )}
+      </div>
+      <p className="hint" style={{ textAlign: 'left' }}>Flags show up under Insights → Night watch. Kids can see this is on in their app.</p>
 
       <div className="section-label">Rules</div>
       <div className="group">

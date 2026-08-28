@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { criticalLateMin, criticalsForKid, hasPass, isGrounded, useStore } from '../../lib/store';
+import { balanceCents, criticalLateMin, criticalsForKid, fmtMoney, hasPass, isGrounded, useStore } from '../../lib/store';
+import WeNeedCard from '../../components/weneed';
 import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
 import { zoomMedia } from '../../components/lightbox';
@@ -87,7 +88,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
               <span className="chore-emoji">⭐</span>
               <div className="spacer">
                 <div className="chore-title">{q.title}</div>
-                {q.status === 'rejected' && q.rejectionReason ? <div className="chore-sub chore-sub--reject">“{q.rejectionReason}”</div> : q.note ? <div className="chore-sub">{q.note}</div> : <div className="chore-sub">Worth {q.points} points</div>}
+                {q.status === 'rejected' && q.rejectionReason ? <div className="chore-sub chore-sub--reject">“{q.rejectionReason}”</div> : q.note ? <div className="chore-sub">{q.note}</div> : <div className="chore-sub">Worth {q.cents ? fmtMoney(q.cents) : `${q.points} points`}</div>}
               </div>
               {actionable ? <span className="btn btn--pill">📷 Snap it</span> : <span className="chip chip--submitted">Submitted</span>}
               {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); zoomMedia(q.promptUrls, n); }} />)}</div>}
@@ -99,7 +100,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
             <span className="chore-emoji">⭐</span>
             <div className="spacer">
               <div className="chore-title">{q.title}</div>
-              <div className="chore-sub">{q.note ? `${q.note} · ` : ''}Worth {q.points} points — first to claim it!</div>
+              <div className="chore-sub">{q.note ? `${q.note} · ` : ''}Worth {q.cents ? fmtMoney(q.cents) : `${q.points} points`} — first to claim it!</div>
             </div>
             <button className="btn btn--pill" onClick={() => s.claimQuest(q.id)}>I got this</button>
             {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }} onClick={() => zoomMedia(q.promptUrls, n)} />)}</div>}
@@ -186,6 +187,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
             <h2>{away ? 'You’re marked away!' : 'Day off!'}</h2>
             <p>{away ? 'No chores while you’re out. ' : 'No chores assigned today. '}Your {kid.streakDays}-day streak is safe.</p>
           </div>
+          <WeNeedCard />
           {QuestCards}
           {RewardShop}
         </>
@@ -200,7 +202,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
               {justUnlocked && <FloatPill text="+1 🔥" />}
               <div className={`streak-num ${justUnlocked ? 'pulse' : ''}`}>🔥 {kid.streakDays}</div>
               <div className="streak-sub">day streak</div>
-              <div className="streak-sub" style={{ marginTop: 4 }}>⭐ {kid.points} pts</div>
+              <div className="streak-sub" style={{ marginTop: 4 }}>⭐ {kid.points} pts{balanceCents(s.moneyLedger, kid.id) !== 0 && ` · 💵 ${fmtMoney(balanceCents(s.moneyLedger, kid.id))}`}</div>
             </button>
           </div>
 
@@ -237,6 +239,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
             </>
           )}
 
+          <WeNeedCard />
           {QuestCards}
           {RewardShop}
         </>

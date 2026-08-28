@@ -29,6 +29,8 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "scheduleDailyReset", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "drainShieldRequests", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "configureNightWatch", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "drainNightEvents", returnType: CAPPluginReturnPromise),
     ]
 
     private let store = ManagedSettingsStore(named: .init("chorelock"))
@@ -146,6 +148,49 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    // MARK: Night watch (3am flags + wake timecard)
+    // Two repeating DeviceActivity schedules over the parent-set night window:
+    //  - chorelock.night: threshold event when the watched selection is used >= N min
+    //    inside the window ("a watched app was used at 2:14 AM") — token-anonymous.
+    //  - chorelock.wake: a 1-minute threshold in the 6 hours after the window ends —
+    //    the crossing time is "first screen use" for the timecard.
+    // The monitor extension records crossings to the app group; drainNightEvents
+    // hands them to the app to sync. Pass enabled=false to stop both.
+    @objc func configureNightWatch(_ call: CAPPluginCall) {
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([.night, .wake])
+        guard call.getBool("enabled") ?? true else { call.resolve(); return }
+        let sh = call.getInt("startHour") ?? 0, sm = call.getInt("startMinute") ?? 0
+        let eh = call.getInt("endHour") ?? 5, em = call.getInt("endMinute") ?? 0
+        let threshold = max(1, call.getInt("thresholdMinutes") ?? 15)
+        let sel = loadSelection()
+        let watched = DeviceActivityEvent(
+            applications: sel.applicationTokens, categories: sel.categoryTokens,
+            webDomains: sel.webDomainTokens, threshold: DateComponents(minute: threshold))
+        let firstUse = DeviceActivityEvent(
+            applications: sel.applicationTokens, categories: sel.categoryTokens,
+            webDomains: sel.webDomainTokens, threshold: DateComponents(minute: 1))
+        do {
+            try center.startMonitoring(.night,
+                during: DeviceActivitySchedule(intervalStart: DateComponents(hour: sh, minute: sm),
+                                               intervalEnd: DateComponents(hour: eh, minute: em), repeats: true),
+                events: [.nightUse: watched])
+            try center.startMonitoring(.wake,
+                during: DeviceActivitySchedule(intervalStart: DateComponents(hour: eh, minute: em),
+                                               intervalEnd: DateComponents(hour: (eh + 6) % 24, minute: em), repeats: true),
+                events: [.firstUse: firstUse])
+            call.resolve()
+        } catch {
+            call.reject("night watch failed: \(error.localizedDescription)")
+        }
+    }
+
+    @objc func drainNightEvents(_ call: CAPPluginCall) {
+        let events = defaults.array(forKey: "nightEvents") as? [[String: Any]] ?? []
+        defaults.removeObject(forKey: "nightEvents")
+        call.resolve(["events": events.map { ["kind": ($0["kind"] as? String) ?? "", "at": ($0["at"] as? Double) ?? 0] }])
+    }
+
     @objc func getStatus(_ call: CAPPluginCall) {
         Task {
             // authorizationStatus settles asynchronously after a cold launch, so an
@@ -180,4 +225,11 @@ private struct PickerHost: View {
 
 extension DeviceActivityName {
     static let dailyReset = Self("chorelock.dailyReset")
+    static let night = Self("chorelock.night")
+    static let wake = Self("chorelock.wake")
+}
+
+extension DeviceActivityEvent.Name {
+    static let nightUse = Self("nightUse")
+    static let firstUse = Self("firstUse")
 }

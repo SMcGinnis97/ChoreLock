@@ -6,6 +6,8 @@ import { isGrounded, useStore, type QuestDraft } from '../../lib/store';
 import { Avatar, Icon, todayLabel } from '../../components/ui';
 import { PullToRefresh } from '../../components/feedback';
 import { zoomMedia } from '../../components/lightbox';
+import WeNeedCard from '../../components/weneed';
+import { fmtMoney } from '../../lib/store';
 import type { Kid, ProofMedia } from '../../lib/types';
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -150,6 +152,8 @@ export default function Dashboard() {
         </>
       )}
 
+      <WeNeedCard />
+
       <div className="row row--between"><span className="section-label">⭐ Side quests</span><button className="btn btn--pill" onClick={() => setQuestDraft({ title: '', points: 5, kidId: null, promptMedia: [] })}>+ Drop a quest</button></div>
       {activeQuests.length === 0 && questQueue.length === 0 && <p className="quiet" style={{ margin: 0 }}>Extra jobs kids can claim for bonus points. Drop one in passing — add a photo so they know what you mean.</p>}
       <div className="col">
@@ -159,12 +163,12 @@ export default function Dashboard() {
             <div key={q.id} className="card row" style={{ padding: 12 }}>
               {q.promptUrls[0] && <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', flexShrink: 0, position: 'relative', cursor: 'zoom-in' }} onClick={() => zoomMedia(q.promptUrls)}><img src={q.promptUrls[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />{q.promptUrls.length > 1 && <span className="chip chip--todo" style={{ position: 'absolute', right: 2, bottom: 2, padding: '1px 5px', fontSize: 10 }}>+{q.promptUrls.length - 1}</span>}</div>}
               <div className="spacer">
-                <div style={{ fontWeight: 800 }}>{q.title} <span className="chip chip--bonus">⭐ {q.points}</span></div>
+                <div style={{ fontWeight: 800 }}>{q.title} <span className="chip chip--bonus">{q.cents ? `💵 ${fmtMoney(q.cents)}` : `⭐ ${q.points}`}</span></div>
                 <div className="kid-sub">{q.status === 'open' ? 'Open — first kid to claim it' : q.status === 'submitted' ? `${k?.name ?? '?'} submitted proof` : `${k?.name ?? '?'} is on it`}</div>
               </div>
               {q.status === 'submitted'
                 ? <button className="btn btn--tint" onClick={() => nav('/parent/approvals')}>Review</button>
-                : <button className="btn btn--text" onClick={() => setQuestDraft({ id: q.id, title: q.title, note: q.note, points: q.points, kidId: q.kidId, promptMedia: [] })}>Edit</button>}
+                : <button className="btn btn--text" onClick={() => setQuestDraft({ id: q.id, title: q.title, note: q.note, points: q.points, cents: q.cents, kidId: q.kidId, promptMedia: [] })}>Edit</button>}
             </div>
           );
         })}
@@ -328,10 +332,24 @@ function QuestSheet({ draft, onChange, onClose, onSave }: { draft: QuestDraft; o
         <textarea className="field" placeholder="Details (optional)" value={draft.note ?? ''} onChange={(e) => set({ note: e.target.value })} />
         <div className="row">
           <div className="section-label" style={{ margin: 0 }}>Worth</div>
-          <div className="seg" style={{ flex: 1 }}>
-            {[5, 10, 15, 25].map((p) => <button key={p} className={draft.points === p ? 'active' : ''} onClick={() => set({ points: p })}>⭐ {p}</button>)}
+          <div className="seg" style={{ width: 150 }}>
+            <button className={draft.cents === undefined ? 'active' : ''} onClick={() => set({ cents: undefined })}>⭐ Points</button>
+            <button className={draft.cents !== undefined ? 'active' : ''} onClick={() => set({ cents: draft.cents ?? 200 })}>💵 Money</button>
           </div>
         </div>
+        {draft.cents === undefined ? (
+          <div className="seg">
+            {[5, 10, 15, 25].map((p) => <button key={p} className={draft.points === p ? 'active' : ''} onClick={() => set({ points: p })}>⭐ {p}</button>)}
+          </div>
+        ) : (
+          <div className="row">
+            <span style={{ fontWeight: 800, fontSize: 18 }}>$</span>
+            <input className="field" type="number" min={0.25} step={0.25} style={{ width: 110 }}
+              value={(draft.cents / 100).toString()}
+              onChange={(e) => set({ cents: Math.max(25, Math.round(Number(e.target.value || 0) * 100)) })} />
+            <span className="kid-sub">paid to their stash on approval</span>
+          </div>
+        )}
         <div className="section-label" style={{ margin: 0 }}>Who</div>
         <div className="assign-chips">
           <button className={`assign-chip ${draft.kidId === null ? 'selected' : ''}`} onClick={() => set({ kidId: null })}>🙋 First to claim</button>

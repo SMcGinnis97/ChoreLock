@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
     : kind === 'summon' ? { title: `📢 ${chore}`, body: reason ?? 'It keeps dinging until you tap “On my way!” in ChoreKey.' }
     : kind === 'critical' ? { title: `🚨 ${chore}`, body: reason ?? 'This one can’t wait — mark it done in ChoreKey.' }
     : kind === 'quarter' ? { title: '🎉 15 minutes granted!', body: 'Make it count — the clock is running.' }
+    : kind === 'money' ? { title: `💵 ${chore}`, body: reason ?? 'Money added to your stash.' }
     : { title: 'Sent back', body: `${chore}: ${reason ?? 'take another look'}` };
   const sound = (kind === 'summon' || kind === 'critical') && Deno.env.get('APNS_CRITICAL') === '1'
     ? { critical: 1, name: 'default', volume: 1.0 } // needs the Critical Alerts entitlement

@@ -70,6 +70,7 @@ export interface SideQuest {
   title: string;
   note?: string;
   points: number;
+  cents?: number; // set = a money quest (pays $ on approval instead of points mattering)
   promptUrls: string[]; // parent's photos of the task
   kidId: string | null; // null = open for any kid to claim
   status: QuestStatus;
@@ -190,4 +191,36 @@ export interface Settings {
   routerStatus: 'connected' | 'disconnected' | 'none';
   routerModel?: string;
   parentCode?: string; // invite code for adding a co-parent (parent role only)
+  streakRewardDays?: number; // every N consecutive completed days…
+  streakRewardCents?: number; // …pays this much (unset = allowance off)
+  nightStart?: string; // "HH:MM" night-watch window (unset = off)
+  nightEnd?: string;
+  nightThresholdMin?: number; // minutes of watched-app use inside the window that trips a flag
+}
+
+/** A shared "we need" item — anyone adds ("we need milk"), anyone checks off. */
+export interface ListItem {
+  id: string;
+  text: string;
+  addedByKid?: string; // kid id; unset = a parent added it
+  doneAt?: string;
+  createdAt: string;
+}
+
+/** One allowance ledger line. Balance = sum of cents. */
+export interface MoneyEntry {
+  id: string;
+  kidId: string;
+  cents: number; // positive = earned, negative = paid out
+  kind: 'streak' | 'quest' | 'payout' | 'adjust';
+  note?: string;
+  createdAt: string;
+}
+
+/** Anonymous night-watch flag from a kid device (no app identities involved). */
+export interface NightEvent {
+  id: string;
+  kidId: string;
+  kind: 'night' | 'wake'; // night = watched apps used ≥ threshold inside the window; wake = first screen use after it
+  at: string;
 }

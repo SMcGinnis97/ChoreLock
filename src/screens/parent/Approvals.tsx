@@ -3,6 +3,7 @@ import { useStore } from '../../lib/store';
 import { Avatar, Icon } from '../../components/ui';
 import { FloatPill } from '../../components/feedback';
 import { zoomMedia } from '../../components/lightbox';
+import { fmtMoney } from '../../lib/store';
 
 const REASONS = ['Not finished', 'Photo unclear', 'Wrong chore', 'Redo it, please'];
 
@@ -76,7 +77,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
             <div key={q.id} className="card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div className="row">
                 {k && <Avatar kid={k} />}
-                <div className="spacer"><div style={{ fontWeight: 800 }}>{k?.name ?? '?'} · {q.title}</div><div className="kid-sub">⭐ {q.points} pts · {q.submittedAt}</div></div>
+                <div className="spacer"><div style={{ fontWeight: 800 }}>{k?.name ?? '?'} · {q.title}</div><div className="kid-sub">{q.cents ? `💵 ${fmtMoney(q.cents)}` : `⭐ ${q.points} pts`} · {q.submittedAt}</div></div>
               </div>
               {q.proofUrl && (q.proofIsVideo
                 ? <video src={q.proofUrl} controls playsInline style={{ width: '100%', borderRadius: 12, maxHeight: 260, background: '#000' }} />
@@ -85,7 +86,7 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
               <div className="row" style={{ position: 'relative' }}>
                 {questPill === q.id && <FloatPill text={`+${q.points} ⭐`} />}
                 <button className="btn btn--outline-danger" style={{ flex: 1 }} onClick={() => setRejecting({ kind: 'quest', id: q.id })}>Reject</button>
-                <button className="btn btn--success" style={{ flex: 1.4 }} onClick={() => approveQuestWithPill(q.id)}>Approve · ⭐ {q.points}</button>
+                <button className="btn btn--success" style={{ flex: 1.4 }} onClick={() => approveQuestWithPill(q.id)}>Approve · {q.cents ? `💵 ${fmtMoney(q.cents)}` : `⭐ ${q.points}`}</button>
               </div>
             </div>
           );

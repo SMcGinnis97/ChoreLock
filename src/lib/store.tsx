@@ -4,7 +4,7 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
+import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
 import { applyLockState, type ShieldContent } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -39,6 +39,13 @@ export const criticalsForKid = (instances: CriticalInstance[], kidId: string) =>
 
 /** True while a granted 15-minute pass is running. */
 export const hasPass = (k: Kid | undefined) => !!k?.unlockUntil && new Date(k.unlockUntil).getTime() > Date.now();
+
+/** Allowance balance in cents. */
+export const balanceCents = (ledger: MoneyEntry[], kidId: string) =>
+  ledger.filter((e) => e.kidId === kidId).reduce((n, e) => n + e.cents, 0);
+
+/** "$12.50" (negative-safe). */
+export const fmtMoney = (cents: number) => `${cents < 0 ? '-' : ''}$${(Math.abs(cents) / 100).toFixed(2)}`;
 
 const cap34 = (s: string) => (s.length > 34 ? `${s.slice(0, 33)}…` : s);
 
@@ -152,6 +159,7 @@ export interface QuestDraft {
   title: string;
   note?: string;
   points: number;
+  cents?: number; // set = pays money on approval instead of points
   kidId: string | null;
   promptMedia: ProofMedia[]; // parent's photos of the task (appended to any existing)
 }
@@ -165,6 +173,7 @@ export interface Store {
   summons: Summon[];
   criticalTasks: CriticalTask[]; criticalInstances: CriticalInstance[];
   unlockRequests: UnlockRequest[];
+  listItems: ListItem[]; moneyLedger: MoneyEntry[]; nightEvents: NightEvent[];
   parents: FamilyParent[];
   rewards: Reward[]; rewardClaims: RewardClaim[];
   // derived
@@ -193,6 +202,11 @@ export interface Store {
   cancelCritical: (instanceId: string) => void;
   /** Parent answers a shield "Ask for 15 minutes": grant starts the pass, deny quiets the button an hour. */
   resolveUnlockRequest: (id: string, grant: boolean) => void;
+  addListItem: (text: string) => void;
+  setListItemDone: (id: string, done: boolean) => void;
+  removeListItem: (id: string) => void;
+  /** Parent ledger entry: negative cents = payout, any sign for 'adjust'. */
+  recordMoney: (kidId: string, cents: number, kind: 'payout' | 'adjust', note?: string) => void;
   saveChore: (chore: Omit<Chore, 'id'> & { id?: string }) => void;
   saveQuest: (quest: QuestDraft) => void;
   claimQuest: (questId: string) => void;
@@ -232,6 +246,8 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
   const [criticalTasks, setCriticalTasks] = useState<CriticalTask[]>([]);
   const [criticalInstances, setCriticalInstances] = useState<CriticalInstance[]>([]);
   const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
+  const [listItems, setListItems] = useState<ListItem[]>([]);
+  const [moneyLedger, setMoneyLedger] = useState<MoneyEntry[]>([]);
 
   const store = useMemo<Store>(() => {
     const requiredProgress = (kidId: string) => {
@@ -260,6 +276,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
     return {
       role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings, summons,
       criticalTasks, criticalInstances, unlockRequests,
+      listItems, moneyLedger, nightEvents: [],
       parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
       rewards, rewardClaims,
       kidLockState, requiredProgress,
@@ -328,6 +345,10 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       completeCritical: (id) =>
         setCriticalInstances((cur) => cur.map((ci) => (ci.id === id ? { ...ci, status: 'done', doneAt: new Date().toISOString(), doneBy: role === 'kid' ? currentKidId : undefined } : ci))),
       cancelCritical: (id) => setCriticalInstances((cur) => cur.map((ci) => (ci.id === id ? { ...ci, status: 'canceled' } : ci))),
+      addListItem: (text) => setListItems((cur) => [{ id: `li${Date.now()}`, text, addedByKid: role === 'kid' ? currentKidId : undefined, createdAt: new Date().toISOString() }, ...cur]),
+      setListItemDone: (id, done) => setListItems((cur) => cur.map((x) => (x.id === id ? { ...x, doneAt: done ? new Date().toISOString() : undefined } : x))),
+      removeListItem: (id) => setListItems((cur) => cur.filter((x) => x.id !== id)),
+      recordMoney: (kidId, cents, kind, note) => setMoneyLedger((cur) => [{ id: `m${Date.now()}`, kidId, cents, kind, note, createdAt: new Date().toISOString() }, ...cur]),
       resolveUnlockRequest: (id, grant) => {
         setUnlockRequests((cur) => cur.map((r) => (r.id === id ? { ...r, status: grant ? 'granted' : 'denied', resolvedAt: new Date().toISOString() } : r)));
         if (grant) {
@@ -361,7 +382,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };
-  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons, criticalTasks, criticalInstances, unlockRequests]);
+  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons, criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

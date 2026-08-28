@@ -136,6 +136,27 @@ export default function Insights() {
         );
       })()}
 
+      {s.nightEvents.length > 0 && (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="section-label" style={{ margin: 0 }}>🌙 Night watch — last 7 days</div>
+          {s.kids.map((k) => {
+            const evs = s.nightEvents.filter((e) => e.kidId === k.id);
+            if (!evs.length) return null;
+            return (
+              <div key={k.id}>
+                <div style={{ fontWeight: 800 }}>{k.name}</div>
+                {evs.slice(0, 8).map((e) => (
+                  <div key={e.id} className="kid-sub">
+                    {e.kind === 'night' ? '🌙 Watched apps used during quiet hours' : '☀️ First screen use'}
+                    {' · '}{new Date(e.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="card row" style={{ padding: 16, gap: 16 }}>
         <BigRing pct={curPct} />
         <div className="spacer">

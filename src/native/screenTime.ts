@@ -37,6 +37,10 @@ export interface ScreenTimePlugin {
   scheduleDailyReset(opts: { hour: number; minute: number }): Promise<void>;
   /** Shield-button taps queued by the action extension, cleared on read. */
   drainShieldRequests(): Promise<{ requests: { kind: 'fifteen' | 'inprogress'; at: number }[] }>;
+  /** (Re)arm the night-watch DeviceActivity schedules, or stop them with enabled=false. */
+  configureNightWatch(opts: { enabled: boolean; startHour?: number; startMinute?: number; endHour?: number; endMinute?: number; thresholdMinutes?: number }): Promise<void>;
+  /** Night/wake threshold crossings recorded by the monitor extension, cleared on read. */
+  drainNightEvents(): Promise<{ events: { kind: 'night' | 'wake'; at: number }[] }>;
 }
 
 const ScreenTime = registerPlugin<ScreenTimePlugin>('ScreenTime', {
@@ -51,6 +55,8 @@ const webStub: ScreenTimePlugin = {
   async getStatus() { return { authorized: false, shielded: false }; },
   async scheduleDailyReset(opts) { console.info('[ScreenTime/web] scheduleDailyReset', opts); },
   async drainShieldRequests() { return { requests: [] }; },
+  async configureNightWatch(opts) { console.info('[ScreenTime/web] configureNightWatch', opts); },
+  async drainNightEvents() { return { events: [] }; },
 };
 
 export const isNativeIOS = () => Capacitor.getPlatform() === 'ios';

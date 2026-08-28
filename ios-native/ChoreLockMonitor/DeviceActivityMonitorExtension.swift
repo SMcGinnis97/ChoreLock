@@ -15,6 +15,23 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     private let store = ManagedSettingsStore(named: .init("chorelock"))
     private let defaults = UserDefaults(suiteName: "group.app.chorelock")
 
+    // Night watch: record threshold crossings ("watched apps used >= N min in the night
+    // window" / "first screen use after wake time") as anonymous timestamps for the app
+    // to sync. No app identities are involved, so this data may leave the device.
+    override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
+        super.eventDidReachThreshold(event, activity: activity)
+        let kind: String
+        switch (activity.rawValue, event.rawValue) {
+        case ("chorelock.night", "nightUse"): kind = "night"
+        case ("chorelock.wake", "firstUse"): kind = "wake"
+        default: return
+        }
+        var events = defaults?.array(forKey: "nightEvents") as? [[String: Any]] ?? []
+        events.append(["kind": kind, "at": Date().timeIntervalSince1970])
+        if events.count > 60 { events.removeFirst(events.count - 60) }
+        defaults?.set(events, forKey: "nightEvents")
+    }
+
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
         guard activity == DeviceActivityName("chorelock.dailyReset") else { return }
