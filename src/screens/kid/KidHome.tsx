@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { criticalLateMin, criticalsForKid, isGrounded, useStore } from '../../lib/store';
+import { criticalLateMin, criticalsForKid, hasPass, isGrounded, useStore } from '../../lib/store';
 import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
 import { zoomMedia } from '../../components/lightbox';
@@ -138,6 +138,11 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
     <div className="screen">
       {justUnlocked && <Confetti onDone={() => setJustUnlocked(false)} />}
       {Header}
+      {!state && hasPass(kid) && (
+        <span className="chip chip--bonus" style={{ alignSelf: 'flex-start' }}>
+          ⏱ 15-minute pass — Wi-Fi until {new Date(kid.unlockUntil!).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+        </span>
+      )}
       {!state && criticalsForKid(s.criticalInstances, kid.id).map((ci) => {
         const t = s.criticalTasks.find((x) => x.id === ci.taskId);
         const late = Math.floor(criticalLateMin(ci));

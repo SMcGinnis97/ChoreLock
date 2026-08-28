@@ -4,8 +4,8 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon } from './types';
-import { applyLockState } from '../native/screenTime';
+import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, LockState, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
+import { applyLockState, type ShieldContent } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
 
@@ -36,6 +36,55 @@ export const criticalLocked = (tasks: CriticalTask[], instances: CriticalInstanc
 /** The critical rounds a kid should see on their home screen: theirs, or any once broadcast. */
 export const criticalsForKid = (instances: CriticalInstance[], kidId: string) =>
   instances.filter((ci) => ci.status === 'open' && (ci.kidId === kidId || ci.level >= 2));
+
+/** True while a granted 15-minute pass is running. */
+export const hasPass = (k: Kid | undefined) => !!k?.unlockUntil && new Date(k.unlockUntil).getTime() > Date.now();
+
+const cap34 = (s: string) => (s.length > 34 ? `${s.slice(0, 33)}…` : s);
+
+/**
+ * Builds the shield screen's content per the design handoff: which of the four
+ * states applies, with placeholders substituted here (the extension only renders).
+ */
+export function buildShieldContent(
+  kid: Kid, chores: Chore[], instances: ChoreInstance[],
+  criticalTasks: CriticalTask[], criticalInstances: CriticalInstance[], unlockRequests: UnlockRequest[],
+): ShieldContent {
+  if (isGrounded(kid)) {
+    const d = new Date(kid.groundedUntil!);
+    const until = (kid.groundedUntil ?? '') >= '9999' ? 'a parent lifts it'
+      : d.toLocaleString([], { weekday: 'short', hour: 'numeric', ...(d.getMinutes() > 0 && { minute: '2-digit' }) }).replace(',', '');
+    return {
+      state: 'grounded',
+      title: `Grounded until ${until}`,
+      subtitle: kid.groundedReason ? `Reason: ${cap34(kid.groundedReason)}. Only a parent can lift this early.` : 'Only a parent can lift this early.',
+    };
+  }
+  const crit = criticalInstances
+    .filter((ci) => ci.status === 'open')
+    .map((ci) => ({ ci, t: criticalTasks.find((x) => x.id === ci.taskId), late: criticalLateMin(ci) }))
+    .filter((x) => x.t && ((x.ci.kidId === kid.id && x.late >= x.t.lockAfterMin) || x.late >= x.t.lockAllAfterMin))
+    .sort((a, b) => b.late - a.late)[0];
+  if (crit) {
+    return {
+      state: 'critical',
+      title: `${crit.t!.emoji} ${crit.ci.title}`,
+      subtitle: `${Math.max(1, Math.floor(crit.late))} minutes late. Nothing unlocks until this one’s done.`,
+    };
+  }
+  const remaining = instances.filter((i) => i.kidId === kid.id && i.status !== 'approved' && chores.find((c) => c.id === i.choreId)?.required);
+  const nextInst = remaining.find((i) => i.status === 'todo' || i.status === 'rejected') ?? remaining[0];
+  const next = cap34(chores.find((c) => c.id === nextInst?.choreId)?.name ?? 'your chores');
+  const deniedRecently = unlockRequests.some((r) =>
+    r.kidId === kid.id && r.kind === 'fifteen' && r.status === 'denied'
+    && !!r.resolvedAt && Date.now() - new Date(r.resolvedAt).getTime() < 3600_000);
+  return {
+    state: 'chores',
+    title: `${remaining.length || 1} to go, ${kid.name} 🔑`,
+    subtitle: kid.streakDays >= 2 ? `Next up: ${next}. Your ${kid.streakDays}-day streak is still alive 🔥` : `Next up: ${next}.`,
+    allowRequest: !deniedRecently,
+  };
+}
 
 /** True when a required instance blocks Wi-Fi right now (due-time aware). */
 export const blocksNow = (i: ChoreInstance, c: Chore | undefined) => {
@@ -115,6 +164,7 @@ export interface Store {
   kids: Kid[]; chores: Chore[]; instances: ChoreInstance[]; quests: SideQuest[]; devices: Device[]; settings: Settings;
   summons: Summon[];
   criticalTasks: CriticalTask[]; criticalInstances: CriticalInstance[];
+  unlockRequests: UnlockRequest[];
   parents: FamilyParent[];
   rewards: Reward[]; rewardClaims: RewardClaim[];
   // derived
@@ -141,6 +191,8 @@ export interface Store {
   completeCritical: (instanceId: string) => void;
   /** Parent-only: dismiss a round without doing it (locks lift, next round still books). */
   cancelCritical: (instanceId: string) => void;
+  /** Parent answers a shield "Ask for 15 minutes": grant starts the pass, deny quiets the button an hour. */
+  resolveUnlockRequest: (id: string, grant: boolean) => void;
   saveChore: (chore: Omit<Chore, 'id'> & { id?: string }) => void;
   saveQuest: (quest: QuestDraft) => void;
   claimQuest: (questId: string) => void;
@@ -179,6 +231,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
   const [summons, setSummons] = useState<Summon[]>([]);
   const [criticalTasks, setCriticalTasks] = useState<CriticalTask[]>([]);
   const [criticalInstances, setCriticalInstances] = useState<CriticalInstance[]>([]);
+  const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
 
   const store = useMemo<Store>(() => {
     const requiredProgress = (kidId: string) => {
@@ -190,6 +243,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       if (isGrounded(kid)) return 'locked';
       if (kid?.absentUntil && kid.absentUntil >= today()) return 'unlocked';
       if (criticalLocked(criticalTasks, criticalInstances, kidId)) return 'locked';
+      if (hasPass(kid)) return 'unlocked';
       if (kid?.override === 'unlock') return 'unlocked';
       if (kid?.override === 'lock') return 'locked';
       return instances.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId))) ? 'locked' : 'unlocked';
@@ -205,7 +259,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
 
     return {
       role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings, summons,
-      criticalTasks, criticalInstances,
+      criticalTasks, criticalInstances, unlockRequests,
       parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
       rewards, rewardClaims,
       kidLockState, requiredProgress,
@@ -274,6 +328,13 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       completeCritical: (id) =>
         setCriticalInstances((cur) => cur.map((ci) => (ci.id === id ? { ...ci, status: 'done', doneAt: new Date().toISOString(), doneBy: role === 'kid' ? currentKidId : undefined } : ci))),
       cancelCritical: (id) => setCriticalInstances((cur) => cur.map((ci) => (ci.id === id ? { ...ci, status: 'canceled' } : ci))),
+      resolveUnlockRequest: (id, grant) => {
+        setUnlockRequests((cur) => cur.map((r) => (r.id === id ? { ...r, status: grant ? 'granted' : 'denied', resolvedAt: new Date().toISOString() } : r)));
+        if (grant) {
+          const req = unlockRequests.find((r) => r.id === id);
+          if (req) setKids((cur) => cur.map((k) => (k.id === req.kidId ? { ...k, unlockUntil: new Date(Date.now() + 15 * 60_000).toISOString() } : k)));
+        }
+      },
       setGrounding: (kidId, until, reason) =>
         setKids((cur) => {
           const next = cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k));
@@ -300,7 +361,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };
-  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons, criticalTasks, criticalInstances]);
+  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons, criticalTasks, criticalInstances, unlockRequests]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

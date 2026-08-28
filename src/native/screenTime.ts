@@ -16,14 +16,27 @@
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import type { LockState } from '../lib/types';
 
+export type ShieldState = 'chores' | 'critical' | 'grounded' | 'bedtime';
+
+/** Per-state shield content; strings arrive with placeholders already substituted. */
+export interface ShieldContent {
+  state: ShieldState;
+  title: string;
+  subtitle: string;
+  /** false hides the "Ask for 15 minutes" button (e.g. after a recent denial). */
+  allowRequest?: boolean;
+}
+
 export interface ScreenTimePlugin {
   requestAuthorization(): Promise<{ status: 'approved' | 'denied' | 'notDetermined' }>;
   pickBlockedApps(): Promise<{ appCount: number; categoryCount: number; webDomainCount: number }>;
   getSelectionSummary(): Promise<{ appCount: number; categoryCount: number; webDomainCount: number }>;
-  setShield(opts: { enabled: boolean; title?: string; subtitle?: string }): Promise<void>;
+  setShield(opts: { enabled: boolean } & Partial<ShieldContent>): Promise<void>;
   getStatus(): Promise<{ authorized: boolean; shielded: boolean }>;
   /** Re-apply the shield locally every day at this time via DeviceActivityMonitor (no network needed). */
   scheduleDailyReset(opts: { hour: number; minute: number }): Promise<void>;
+  /** Shield-button taps queued by the action extension, cleared on read. */
+  drainShieldRequests(): Promise<{ requests: { kind: 'fifteen' | 'inprogress'; at: number }[] }>;
 }
 
 const ScreenTime = registerPlugin<ScreenTimePlugin>('ScreenTime', {
@@ -37,17 +50,17 @@ const webStub: ScreenTimePlugin = {
   async setShield(opts) { console.info('[ScreenTime/web] setShield', opts); },
   async getStatus() { return { authorized: false, shielded: false }; },
   async scheduleDailyReset(opts) { console.info('[ScreenTime/web] scheduleDailyReset', opts); },
+  async drainShieldRequests() { return { requests: [] }; },
 };
 
 export const isNativeIOS = () => Capacitor.getPlatform() === 'ios';
 
-export async function applyLockState(state: LockState) {
+export async function applyLockState(state: LockState, content?: ShieldContent) {
   if (state === 'unknown') return; // keep last known
   try {
     await ScreenTime.setShield({
       enabled: state === 'locked',
-      title: 'Locked until chores are done 🔒',
-      subtitle: 'Open ChoreKey to snap your proof.',
+      ...(content ?? { state: 'chores', title: 'Chores first 🔑', subtitle: 'Open ChoreKey to snap your proof.' }),
     });
   } catch (e) {
     console.warn('[ScreenTime] setShield failed', e);

@@ -66,6 +66,35 @@ export default function Dashboard() {
         );
       })()}
 
+      {(() => {
+        const asks = s.unlockRequests.filter((r) => r.kind === 'fifteen' && r.status === 'pending');
+        const pings = s.unlockRequests.filter((r) => r.kind === 'inprogress' && Date.now() - new Date(r.createdAt).getTime() < 30 * 60_000);
+        if (!asks.length && !pings.length) return null;
+        return (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="section-label" style={{ margin: 0 }}>🙏 From the lock screen</div>
+            {asks.map((r) => {
+              const k = s.kids.find((x) => x.id === r.kidId);
+              return (
+                <div key={r.id} className="row">
+                  {k && <Avatar kid={k} size="sm" />}
+                  <div className="spacer">
+                    <div style={{ fontWeight: 800 }}>{k?.name ?? '?'} asks for 15 minutes</div>
+                    <div className="kid-sub">{new Date(r.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · granting unlocks Wi-Fi for 15 min</div>
+                  </div>
+                  <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => s.resolveUnlockRequest(r.id, false)}>Not now</button>
+                  <button className="btn btn--pill" onClick={() => s.resolveUnlockRequest(r.id, true)}>Give 15 ⏱</button>
+                </div>
+              );
+            })}
+            {pings.map((r) => {
+              const k = s.kids.find((x) => x.id === r.kidId);
+              return <div key={r.id} className="kid-sub" style={{ fontWeight: 700 }}>💪 {k?.name ?? '?'} says they’re on the critical task · {new Date(r.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>;
+            })}
+          </div>
+        );
+      })()}
+
       <div className="kid-grid">
         {s.kids.map((k) => {
           const p = s.requiredProgress(k.id);

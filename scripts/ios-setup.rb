@@ -131,6 +131,13 @@ EXTENSIONS.each do |ext|
   FileUtils.mkdir_p(dir)
   FileUtils.cp(File.join(NATIVE, ext[:src]), File.join(dir, File.basename(ext[:src])))
   FileUtils.cp(File.join(NATIVE, ext[:ent]), File.join(dir, "#{ext[:name]}.entitlements"))
+  # Shield icons: UIImage(named:) in an extension resolves against the EXTENSION's
+  # bundle, so the asset catalog must belong to the shield target itself.
+  assets_src = File.join(NATIVE, ext[:name], 'Assets.xcassets')
+  if File.directory?(assets_src)
+    FileUtils.rm_rf(File.join(dir, 'Assets.xcassets'))
+    FileUtils.cp_r(assets_src, dir)
+  end
   File.write(File.join(dir, 'Info.plist'), {
     'CFBundleDevelopmentRegion' => 'en', 'CFBundleDisplayName' => ext[:name], 'CFBundleExecutable' => '$(EXECUTABLE_NAME)',
     'CFBundleIdentifier' => '$(PRODUCT_BUNDLE_IDENTIFIER)', 'CFBundleInfoDictionaryVersion' => '6.0', 'CFBundleName' => '$(PRODUCT_NAME)',
@@ -146,6 +153,10 @@ EXTENSIONS.each do |ext|
     src_ref = grp.new_file(File.basename(ext[:src]))
     target.source_build_phase.add_file_reference(src_ref)
     grp.new_file('Info.plist'); grp.new_file("#{ext[:name]}.entitlements")
+    if File.directory?(File.join(dir, 'Assets.xcassets'))
+      assets_ref = grp.new_file('Assets.xcassets')
+      target.resources_build_phase.add_file_reference(assets_ref)
+    end
     ext[:frameworks].each { |fw| target.add_system_framework(fw) }
     app.add_dependency(target)
     bf = embed.add_file_reference(target.product_reference)

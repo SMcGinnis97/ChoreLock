@@ -91,6 +91,51 @@ export default function Insights() {
         <button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>This month</button>
       </div>
 
+      {(() => {
+        // Co-parent visibility: today's reviews and grants, attributed by parent.
+        const pname = (uid?: string) => {
+          const p = s.parents.find((x) => x.userId === uid);
+          return p ? (p.isMe ? 'You' : (p.name ?? p.email ?? 'A parent')) : 'A parent';
+        };
+        const kname = (kidId: string) => s.kids.find((k) => k.id === kidId)?.name ?? '?';
+        const events = [
+          ...s.instances.filter((i) => i.reviewedBy && i.reviewedAt && (i.status === 'approved' || i.status === 'rejected')).map((i) => ({
+            at: i.reviewedAt!,
+            text: `${pname(i.reviewedBy)} ${i.status === 'approved' ? 'approved' : 'sent back'} ${kname(i.kidId)}’s ${s.chores.find((c) => c.id === i.choreId)?.name ?? 'chore'}`,
+            detail: i.status === 'rejected' && i.rejectionReason ? `“${i.rejectionReason}”` : undefined,
+            emoji: i.status === 'approved' ? '✅' : '↩️',
+          })),
+          ...s.quests.filter((q) => q.reviewedBy && q.reviewedAt && (q.status === 'approved' || q.status === 'rejected')).map((q) => ({
+            at: q.reviewedAt!,
+            text: `${pname(q.reviewedBy)} ${q.status === 'approved' ? 'approved' : 'sent back'} the quest “${q.title}”${q.kidId ? ` (${kname(q.kidId)})` : ''}`,
+            detail: q.status === 'rejected' && q.rejectionReason ? `“${q.rejectionReason}”` : undefined,
+            emoji: q.status === 'approved' ? '⭐' : '↩️',
+          })),
+          ...s.rewardClaims.filter((c) => c.resolvedBy && c.resolvedAt && c.status !== 'requested').map((c) => ({
+            at: c.resolvedAt!,
+            text: `${pname(c.resolvedBy)} ${c.status === 'granted' ? 'granted' : 'denied'} ${kname(c.kidId)}’s reward: ${s.rewards.find((r) => r.id === c.rewardId)?.title ?? '?'}`,
+            detail: undefined as string | undefined,
+            emoji: c.status === 'granted' ? '🎁' : '🚫',
+          })),
+        ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12);
+        if (!events.length) return null;
+        return (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="section-label" style={{ margin: 0 }}>Parent activity today</div>
+            {events.map((e, n) => (
+              <div key={n} className="row" style={{ alignItems: 'baseline', gap: 8 }}>
+                <span aria-hidden>{e.emoji}</span>
+                <div className="spacer">
+                  <span style={{ fontWeight: 700 }}>{e.text}</span>
+                  {e.detail && <span className="kid-sub"> · {e.detail}</span>}
+                </div>
+                <span className="kid-sub" style={{ whiteSpace: 'nowrap' }}>{new Date(e.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       <div className="card row" style={{ padding: 16, gap: 16 }}>
         <BigRing pct={curPct} />
         <div className="spacer">

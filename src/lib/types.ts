@@ -17,7 +17,18 @@ export interface Kid {
   absentUntil?: string; // YYYY-MM-DD; set = away (no chores, unlocked) through that date
   groundedUntil?: string; // ISO timestamp; set + future = grounded (locked no matter what)
   groundedReason?: string; // shown to the kid (banner + push)
+  unlockUntil?: string; // ISO; a granted 15-minute pass — unlocked until then (never beats grounding/criticals)
   joinCode?: string; // shown to parent for enrolling kid devices
+}
+
+/** A shield-button ask: "Ask for 15 minutes" (pending → granted/denied) or an "I'm on it" ping. */
+export interface UnlockRequest {
+  id: string;
+  kidId: string;
+  kind: 'fifteen' | 'inprogress';
+  status: 'pending' | 'granted' | 'denied';
+  createdAt: string;
+  resolvedAt?: string;
 }
 
 /** A chore definition (what repeats). */
@@ -49,6 +60,8 @@ export interface ChoreInstance {
   note?: string;
   submittedAt?: string;
   rejectionReason?: string;
+  reviewedBy?: string; // parent user id — powers the co-parent activity feed
+  reviewedAt?: string; // ISO
 }
 
 /** Ad-hoc bonus task ("side quest") a parent drops in, worth points. */
@@ -65,6 +78,8 @@ export interface SideQuest {
   proofNote?: string;
   rejectionReason?: string;
   submittedAt?: string;
+  reviewedBy?: string; // parent user id
+  reviewedAt?: string; // ISO
 }
 
 /** A parent-defined reward kids can spend quest points on. */
@@ -80,6 +95,8 @@ export interface RewardClaim {
   rewardId: string;
   kidId: string;
   status: 'requested' | 'granted' | 'denied';
+  resolvedBy?: string; // parent user id
+  resolvedAt?: string; // ISO
 }
 
 /** What a chore submission carries — one or both, per the chore's proofType. */

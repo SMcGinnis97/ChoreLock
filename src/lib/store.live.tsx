@@ -7,8 +7,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { blocksNow, criticalLocked, isGrounded, Ctx, type CriticalDraft, type QuestDraft, type Role, type Store } from './store';
-import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, LockState, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon } from './types';
+import { blocksNow, buildShieldContent, criticalLocked, hasPass, isGrounded, Ctx, type CriticalDraft, type QuestDraft, type Role, type Store } from './store';
+import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, LockState, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
 import { applyLockState } from '../native/screenTime';
 import { Capacitor } from '@capacitor/core';
 import { installId, setupPush } from '../native/push';
@@ -57,11 +57,12 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
   const [summons, setSummons] = useState<Summon[]>([]);
   const [criticalTasks, setCriticalTasks] = useState<CriticalTask[]>([]);
   const [criticalInstances, setCriticalInstances] = useState<CriticalInstance[]>([]);
+  const [unlockRequests, setUnlockRequests] = useState<UnlockRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentKidId, setCurrentKidId] = useState(identity.kidId ?? '');
   const [tick, setTick] = useState(0); // minute pulse so due-time lock flips re-evaluate while open
-  const lastApplied = useRef<LockState | null>(null);
+  const lastApplied = useRef<string | null>(null); // JSON of [lockState, shieldContent]
 
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 60_000); return () => clearInterval(t); }, []);
 
@@ -76,7 +77,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       if (ke) throw ke;
       await Promise.all((kidRows ?? []).map((k) => sb().rpc('ensure_today', { p_kid: k.id })));
 
-      const [fam, invite, pars, rw, rc, ch, asg, inst, qs, dev, pts, streaks, smn, ctk, cin] = await Promise.all([
+      const [fam, invite, pars, rw, rc, ch, asg, inst, qs, dev, pts, streaks, smn, ctk, cin, ur] = await Promise.all([
         sb().from('families').select('*').single(),
         role === 'parent' ? sb().from('parent_invites').select('code').maybeSingle() : Promise.resolve({ data: null }),
         role === 'parent' ? sb().from('family_parents').select('*') : Promise.resolve({ data: [] }),
@@ -92,6 +93,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         sb().from('summons').select('*').gte('created_at', new Date(Date.now() - 30 * 60_000).toISOString()).order('created_at', { ascending: false }),
         sb().from('critical_tasks').select('*').order('first_fire'),
         sb().from('critical_instances').select('*').or(`status.in.(open,scheduled),created_at.gte.${new Date(Date.now() - 24 * 3600_000).toISOString()}`).order('created_at', { ascending: false }),
+        sb().from('unlock_requests').select('*').gte('created_at', new Date(Date.now() - 24 * 3600_000).toISOString()).order('created_at', { ascending: false }),
       ]);
       const streakMap = Object.fromEntries(streaks);
       const pointsMap = Object.fromEntries((pts.data ?? []).map((p) => [p.kid_id, p.points]));
@@ -101,19 +103,21 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
 
       setSettings({ resetTime: fam.data?.reset_time?.slice(0, 5) ?? '00:00', autoApprove: fam.data?.auto_approve ?? false, routerStatus: 'none', parentCode: invite.data?.code ?? undefined });
       setChores((ch.data ?? []).map((c) => ({ id: c.id, name: c.name, emoji: c.emoji, instruction: c.instruction ?? undefined, recurrence: c.recurrence, days: c.days ?? [], rotation: c.rotation ?? 'none', dueTime: c.due_time ? c.due_time.slice(0, 5) : undefined, required: c.required, photoProof: c.photo_proof, proofType: c.proof_type ?? 'photo', kidIds: (asg.data ?? []).filter((a) => a.chore_id === c.id).map((a) => a.kid_id) })));
-      setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, groundedUntil: k.grounded_until ?? undefined, groundedReason: k.grounded_reason ?? undefined, joinCode: k.join_code ?? undefined })));
+      setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, groundedUntil: k.grounded_until ?? undefined, groundedReason: k.grounded_reason ?? undefined, unlockUntil: k.unlock_until ?? undefined, joinCode: k.join_code ?? undefined })));
       setInstances(await Promise.all(todays.map(async (i) => ({
         id: i.id, choreId: i.chore_id, kidId: i.kid_id, date: i.date, status: i.status, attempt: i.attempt,
         photoUrl: await signed(i.photo_path), videoUrl: await signed(i.video_path),
         note: i.note ?? undefined, submittedAt: fmtTime(i.submitted_at), rejectionReason: i.rejection_reason ?? undefined,
+        reviewedBy: i.reviewed_by ?? undefined, reviewedAt: i.reviewed_at ?? undefined,
       }))));
       setRewards((rw.data ?? []).map((r) => ({ id: r.id, title: r.title, emoji: r.emoji, points: r.points })));
-      setRewardClaims((rc.data ?? []).map((c) => ({ id: c.id, rewardId: c.reward_id, kidId: c.kid_id, status: c.status })));
+      setRewardClaims((rc.data ?? []).map((c) => ({ id: c.id, rewardId: c.reward_id, kidId: c.kid_id, status: c.status, resolvedBy: c.resolved_by ?? undefined, resolvedAt: c.resolved_at ?? undefined })));
       setQuests(await Promise.all((qs.data ?? []).map(async (q) => ({
         id: q.id, title: q.title, note: q.note ?? undefined, points: q.points, kidId: q.kid_id,
         status: q.status, promptUrls: (await Promise.all(((q.prompt_paths ?? []) as string[]).map(signed))).filter((u): u is string => !!u),
         proofUrl: await signed(q.proof_path), proofIsVideo: isVideoPath(q.proof_path),
         proofNote: q.proof_note ?? undefined, rejectionReason: q.rejection_reason ?? undefined, submittedAt: fmtTime(q.submitted_at),
+        reviewedBy: q.reviewed_by ?? undefined, reviewedAt: q.reviewed_at ?? undefined,
       }))));
       setDevices((dev.data ?? []).map((d) => ({ id: d.id, kidId: d.kid_id, name: d.name, platform: d.platform, identifier: d.identifier, lastSeen: d.last_seen ?? undefined, blocked: false, override: d.override ?? null, scheduleStart: d.schedule_start ? d.schedule_start.slice(0, 5) : undefined, scheduleEnd: d.schedule_end ? d.schedule_end.slice(0, 5) : undefined })));
       setParents((pars.data ?? []).map((p: { user_id: string; display_name: string | null; email: string | null }) => ({ userId: p.user_id, name: p.display_name ?? undefined, email: p.email ?? undefined, isMe: p.user_id === identity.session?.user.id })));
@@ -132,6 +136,10 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       setCriticalInstances((cin.data ?? []).map((x) => ({
         id: x.id, taskId: x.task_id, kidId: x.kid_id, kind: x.kind, title: x.title, dueAt: x.due_at,
         status: x.status, level: x.level, doneAt: x.done_at ?? undefined, doneBy: x.done_by ?? undefined,
+      })));
+      setUnlockRequests((ur.data ?? []).map((r) => ({
+        id: r.id, kidId: r.kid_id, kind: r.kind, status: r.status,
+        createdAt: r.created_at, resolvedAt: r.resolved_at ?? undefined,
       })));
     } catch (e) {
       setError((e as Error).message);
@@ -152,6 +160,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'summons' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'critical_instances' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'critical_tasks' }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'unlock_requests' }, () => void load())
       .subscribe();
     const onVis = () => { if (document.visibilityState === 'visible') void load(); };
     document.addEventListener('visibilitychange', onVis);
@@ -173,6 +182,24 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
     void ScreenTime.scheduleDailyReset({ hour: h, minute: m }).catch(() => {});
   }, [role, loading, settings.resetTime]);
 
+  // Shield-button taps ("Ask for 15 minutes" / "I'm doing it now") queue in the app
+  // group while the app is closed; forward them to Supabase on launch and foreground.
+  useEffect(() => {
+    if (role !== 'kid' || !Capacitor.isNativePlatform()) return;
+    const drain = async () => {
+      try {
+        const { requests } = await ScreenTime.drainShieldRequests();
+        if (!requests.length) return;
+        for (const r of requests) await sb().rpc('request_unlock', { p_kind: r.kind });
+        void load();
+      } catch { /* older native build without the method */ }
+    };
+    void drain();
+    const onVis = () => { if (document.visibilityState === 'visible') void drain(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [role, load]);
+
   const uploadProof = useCallback(async (path: string, media: ProofMedia) => {
     const { error: ue } = await sb().storage.from('proofs').upload(path, media.blob, { contentType: media.contentType, upsert: true });
     if (ue) throw ue;
@@ -191,6 +218,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       if (isGrounded(kid)) return 'locked';
       if (kid?.absentUntil) return 'unlocked';
       if (criticalLocked(criticalTasks, criticalInstances, kidId)) return 'locked';
+      if (hasPass(kid)) return 'unlocked';
       if (kid?.override === 'unlock') return 'unlocked';
       if (kid?.override === 'lock') return 'locked';
       return instances.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId))) ? 'locked' : 'unlocked';
@@ -201,7 +229,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
     return {
       role, setRole: () => {}, currentKidId, setCurrentKidId,
       kids, chores, instances, quests, devices: devicesWithState, settings, parents, rewards, rewardClaims, summons, loading, error,
-      criticalTasks, criticalInstances,
+      criticalTasks, criticalInstances, unlockRequests,
       kidLockState, requiredProgress,
       pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length + rewardClaims.filter((c) => c.status === 'requested').length,
       submit: async (id, proof, note) => {
@@ -278,6 +306,12 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         await sb().rpc('cancel_critical', { p_id: id });
         await load();
       },
+      resolveUnlockRequest: async (id, grant) => {
+        setUnlockRequests((cur) => cur.map((r) => (r.id === id ? { ...r, status: grant ? 'granted' : 'denied', resolvedAt: new Date().toISOString() } : r)));
+        const { error: e } = await sb().rpc('resolve_unlock_request', { p_id: id, p_grant: grant });
+        if (e) setError(`Couldn’t answer the request: ${e.message}`);
+        await load();
+      },
       setGrounding: async (kidId, until, reason) => {
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k)));
         const { error: e } = await sb().rpc('set_grounding', { p_kid: kidId, p_until: until, p_reason: reason ?? null });
@@ -322,7 +356,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       },
       reviewQuest: async (id, ok, reason) => {
         setQuests((cur) => cur.map((q) => (q.id === id ? { ...q, status: ok ? 'approved' : 'rejected', rejectionReason: ok ? undefined : reason } : q)));
-        await sb().from('side_quests').update({ status: ok ? 'approved' : 'rejected', rejection_reason: ok ? null : reason ?? null, reviewed_at: new Date().toISOString() }).eq('id', id);
+        await sb().from('side_quests').update({ status: ok ? 'approved' : 'rejected', rejection_reason: ok ? null : reason ?? null, reviewed_at: new Date().toISOString(), reviewed_by: identity.session?.user.id }).eq('id', id);
       },
       saveReward: async (r) => {
         if (r.id) await sb().from('rewards').update({ title: r.title, emoji: r.emoji, points: r.points }).eq('id', r.id);
@@ -339,7 +373,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       },
       resolveClaim: async (id, grant) => {
         setRewardClaims((cur) => cur.map((c) => (c.id === id ? { ...c, status: grant ? 'granted' : 'denied' } : c)));
-        await sb().from('reward_claims').update({ status: grant ? 'granted' : 'denied', resolved_at: new Date().toISOString() }).eq('id', id);
+        await sb().from('reward_claims').update({ status: grant ? 'granted' : 'denied', resolved_at: new Date().toISOString(), resolved_by: identity.session?.user.id }).eq('id', id);
         await load();
       },
       updateSettings: async (patch) => {
@@ -374,14 +408,19 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       signOut: async () => { await sb().auth.signOut(); },
       reload: load,
     };
-  }, [role, currentKidId, kids, chores, instances, quests, devices, settings, parents, rewards, rewardClaims, summons, criticalTasks, criticalInstances, loading, error, identity, load, uploadProof, tick]);
+  }, [role, currentKidId, kids, chores, instances, quests, devices, settings, parents, rewards, rewardClaims, summons, criticalTasks, criticalInstances, unlockRequests, loading, error, identity, load, uploadProof, tick]);
 
-  // Push lock state to the native shield whenever it changes (kid devices only).
+  // Push lock state + per-state shield content to the native shield whenever either
+  // changes (kid devices only). Content changes while still locked (a chore approved,
+  // a critical escalating) re-apply too, so the shield copy stays current.
   useEffect(() => {
     if (role !== 'kid' || !identity.kidId || loading) return;
     const st = store.kidLockState(identity.kidId);
-    if (st !== lastApplied.current) { lastApplied.current = st; void applyLockState(st); }
-  }, [role, identity.kidId, loading, store]);
+    const kid = kids.find((k) => k.id === identity.kidId);
+    const content = kid ? buildShieldContent(kid, chores, instances, criticalTasks, criticalInstances, unlockRequests) : undefined;
+    const sig = JSON.stringify([st, content]);
+    if (sig !== lastApplied.current) { lastApplied.current = sig; void applyLockState(st, content); }
+  }, [role, identity.kidId, loading, store, kids, chores, instances, criticalTasks, criticalInstances, unlockRequests]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

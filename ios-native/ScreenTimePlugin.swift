@@ -28,6 +28,7 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setShield", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "scheduleDailyReset", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "drainShieldRequests", returnType: CAPPluginReturnPromise),
     ]
 
     private let store = ManagedSettingsStore(named: .init("chorelock"))
@@ -96,10 +97,22 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
     // MARK: Shield
     @objc func setShield(_ call: CAPPluginCall) {
         let enabled = call.getBool("enabled") ?? false
+        // Per-state shield content (see ShieldConfigurationExtension): the app sends
+        // already-substituted strings; the extension only reads and renders.
+        if let st = call.getString("state") { defaults.set(st, forKey: "shieldState") }
         if let t = call.getString("title") { defaults.set(t, forKey: "shieldTitle") }
         if let s = call.getString("subtitle") { defaults.set(s, forKey: "shieldSubtitle") }
+        if let a = call.getBool("allowRequest") { defaults.set(a, forKey: "shieldAllowRequest") }
         applyShield(enabled: enabled)
         call.resolve()
+    }
+
+    /// Returns and clears the shield-button taps queued by ShieldActionExtension
+    /// (the extension can't do reliable network work; the app forwards these to Supabase).
+    @objc func drainShieldRequests(_ call: CAPPluginCall) {
+        let queue = defaults.array(forKey: "shieldRequestQueue") as? [[String: Any]] ?? []
+        defaults.removeObject(forKey: "shieldRequestQueue")
+        call.resolve(["requests": queue.map { ["kind": ($0["kind"] as? String) ?? "", "at": ($0["at"] as? Double) ?? 0] }])
     }
 
     func applyShield(enabled: Bool) {
