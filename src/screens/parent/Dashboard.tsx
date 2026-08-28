@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { isGrounded, useStore, type QuestDraft } from '../../lib/store';
+import { isGrounded, isMissed, pastDue, useStore, type QuestDraft } from '../../lib/store';
 import { Avatar, Icon, todayLabel } from '../../components/ui';
 import { PullToRefresh } from '../../components/feedback';
 import { zoomMedia } from '../../components/lightbox';
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const s = useStore();
   const nav = useNavigate();
   const [awayFor, setAwayFor] = useState<Kid | null>(null);
+  const [handoffFor, setHandoffFor] = useState<Kid | null>(null);
   const [groundFor, setGroundFor] = useState<Kid | null>(null);
   const [callOpen, setCallOpen] = useState(false);
   const [dayListFor, setDayListFor] = useState<Kid | null>(null);
@@ -29,7 +30,14 @@ export default function Dashboard() {
   const questQueue = s.quests.filter((q) => q.status === 'submitted');
   const activeQuests = s.quests.filter((q) => q.status !== 'approved' && q.status !== 'rejected');
 
-  const markAway = (until: string | null) => { if (awayFor) s.setAbsent(awayFor.id, until); setAwayFor(null); };
+  const markAway = (until: string | null) => {
+    if (!awayFor) return;
+    s.setAbsent(awayFor.id, until);
+    // Anything unfinished today can be handed to a sibling — parent's pick, not automation's.
+    const openToday = s.instances.some((i) => i.kidId === awayFor.id && i.status !== 'approved');
+    if (until && openToday && s.kids.length > 1) setHandoffFor(awayFor);
+    setAwayFor(null);
+  };
   const fmtAway = (until: string) => until >= '9999' ? 'until further notice' : `through ${new Date(until + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}`;
   const fmtGrounded = (until: string) => until >= '9999' ? 'until you lift it' : `until ${new Date(until).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`;
 
@@ -43,6 +51,32 @@ export default function Dashboard() {
           <button className="btn btn--pill" style={{ background: 'var(--warn)' }} onClick={() => setCallOpen(true)}>📢 Call</button>
         </div>
       </div>
+
+      {(() => {
+        // Escalated chores: overdue = 'escalate', past due, still not approved. Wi-Fi is already off — this makes sure a parent SEES it.
+        const late = s.instances
+          .map((i) => ({ i, c: s.chores.find((x) => x.id === i.choreId) }))
+          .filter(({ i, c }) => c?.overdue === 'escalate' && i.status !== 'approved' && pastDue(c));
+        if (!late.length) return null;
+        return (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '4px solid var(--danger)' }}>
+            <div className="section-label" style={{ margin: 0, color: 'var(--danger)' }}>⚠️ Past due</div>
+            {late.map(({ i, c }) => {
+              const k = s.kids.find((x) => x.id === i.kidId);
+              return (
+                <div key={i.id} className="row">
+                  <span className="chore-emoji">{c!.emoji}</span>
+                  <div className="spacer">
+                    <div style={{ fontWeight: 800 }}>{k?.name ?? '?'} · {c!.name}</div>
+                    <div className="kid-sub">{i.status === 'submitted' ? 'Submitted — waiting on your review' : `Not done — was due ${fmtTime(c!.dueTime!)}. Wi-Fi is off until it's approved.`}</div>
+                  </div>
+                  {i.status !== 'submitted' && k && <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => setDayListFor(k)}>Open</button>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {(() => {
         const calls = s.summons.filter((x) => !x.canceledAt && (x.acknowledgedAt || new Date(x.expiresAt).getTime() > Date.now()));
@@ -190,6 +224,22 @@ export default function Dashboard() {
         </div>
       )}
 
+      {handoffFor && (
+        <div className="sheet-backdrop" onClick={() => setHandoffFor(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="handle" />
+            <h2 style={{ fontSize: 22 }}>Hand {handoffFor.name}’s chores to…</h2>
+            <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>Today’s unfinished chores move to whoever you pick. Skipping just gives {handoffFor.name} the day off.</p>
+            {s.kids.filter((k) => k.id !== handoffFor.id && !k.absentUntil).map((k) => (
+              <button key={k.id} className="btn btn--outline" onClick={() => { s.handoffToday(handoffFor.id, k.id); setHandoffFor(null); }}>
+                <span className="row" style={{ gap: 8, justifyContent: 'center' }}><Avatar kid={k} size="sm" /> {k.name} takes them</span>
+              </button>
+            ))}
+            <button className="btn btn--text" onClick={() => setHandoffFor(null)}>Skip — no hand-off</button>
+          </div>
+        </div>
+      )}
+
       {callOpen && <CallSheet onClose={() => setCallOpen(false)} onCall={(kidIds, location, note, meeting) => { s.callKids(kidIds, location, note, meeting); setCallOpen(false); }} />}
 
       {groundFor && <GroundSheet kid={groundFor} onClose={() => setGroundFor(null)} onGround={(until, reason) => { s.setGrounding(groundFor.id, until, reason); setGroundFor(null); }} />}
@@ -209,7 +259,7 @@ export default function Dashboard() {
                 return (
                   <div key={i.id} className="card row" style={{ padding: 10 }}>
                     <span className="chore-emoji">{c.emoji}</span>
-                    <div className="spacer"><div className="chore-title">{c.name}</div><div className="chore-sub">{i.status === 'todo' ? 'Not done yet' : i.status === 'submitted' ? 'Waiting for review' : i.status === 'approved' ? 'Approved' : `Rejected — ${i.rejectionReason ?? 'redo'}`}</div></div>
+                    <div className="spacer"><div className="chore-title">{c.name}</div><div className="chore-sub">{i.status === 'approved' ? 'Approved' : isMissed(i, c) ? '⌛ Missed — expired at its due time' : i.status === 'todo' ? 'Not done yet' : i.status === 'submitted' ? 'Waiting for review' : `Rejected — ${i.rejectionReason ?? 'redo'}`}</div></div>
                     {i.status === 'approved'
                       ? <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => s.reopen(i.id)}>Undo</button>
                       : <button className="btn btn--outline-ok" onClick={() => s.approve(i.id)}>Mark done</button>}

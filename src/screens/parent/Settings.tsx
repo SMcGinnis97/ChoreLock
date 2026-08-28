@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { balanceCents, fmtMoney, useStore } from '../../lib/store';
 import { Avatar, Icon, Switch } from '../../components/ui';
-import ScreenTime, { isNativeIOS } from '../../native/screenTime';
 import type { Device, Kid } from '../../lib/types';
 import { fmtTime } from './Dashboard';
 
 export default function Settings() {
   const s = useStore();
-  const [st, setSt] = useState<{ authorized: boolean; shielded: boolean } | null>(null);
-  const [sel, setSel] = useState<{ appCount: number; categoryCount: number; webDomainCount: number } | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const [devName, setDevName] = useState('');
   const [addingKid, setAddingKid] = useState(false);
@@ -18,8 +15,7 @@ export default function Settings() {
   const COLORS = ['#0D9488', '#B45309', '#5B5BD6', '#BE185D', '#1D4ED8', '#15803D'];
   const [devMac, setDevMac] = useState('');
   const [rewardDraft, setRewardDraft] = useState<{ id?: string; title: string; emoji: string; points: number } | null>(null);
-
-  useEffect(() => { ScreenTime.getStatus().then(setSt); ScreenTime.getSelectionSummary().then(setSel); }, []);
+  const [settleFor, setSettleFor] = useState<Kid | null>(null);
 
   const routerOk = s.settings.routerStatus === 'connected';
 
@@ -57,21 +53,12 @@ export default function Settings() {
       <div className="section-label">Device control</div>
       <div className="group">
         <div className="group-row">
-          <div className={`status-tile ${st?.authorized ? '' : 'status-tile--off'}`}><Icon.Phone /></div>
-          <div className="spacer"><div className="title">iOS Screen Time</div><div className="sub">{isNativeIOS() ? (st?.authorized ? 'Authorized · shields apps on this device' : 'Not authorized yet') : 'Runs on each kid’s iPhone/iPad'}</div></div>
-          {isNativeIOS() && !st?.authorized && <button className="btn btn--tint" onClick={async () => { try { await ScreenTime.requestAuthorization(); setSt(await ScreenTime.getStatus()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>Authorize</button>}
-        </div>
-        <button className="group-row" onClick={async () => { try { setSel(await ScreenTime.pickBlockedApps()); } catch (e) { alert(`Screen Time: ${(e as Error).message ?? e}`); } }}>
-          <div className="spacer"><div className="title">Blocked while locked</div><div className="sub">{sel && (sel.appCount + sel.categoryCount + sel.webDomainCount) > 0 ? `${sel.appCount} apps · ${sel.categoryCount} categories · ${sel.webDomainCount} sites (this device)` : 'Choose apps, categories, or websites'}</div></div>
-          <span style={{ color: 'var(--ink-3)' }}><Icon.Chevron /></span>
-        </button>
-        <div className="group-row">
           <div className={`status-tile ${routerOk ? '' : 'status-tile--off'}`}><Icon.Router /></div>
           <div className="spacer"><div className="title">{routerOk ? 'Router connected' : 'Router (optional)'}</div><div className="sub">{s.settings.routerModel ?? 'For consoles, TVs & non-Apple devices'}</div></div>
           <span className={`dot`} style={{ color: routerOk ? 'var(--ok)' : 'var(--ink-3)' }} />
         </div>
       </div>
-      <p className="hint" style={{ textAlign: 'left' }}>App blocking is per device. Set it up on each kid’s phone: open ChoreKey there, tap the 🛡️ icon, and enter your parent code.</p>
+      <p className="hint" style={{ textAlign: 'left' }}>App blocking runs on each kid’s device, not this one. Set it up on each kid’s phone: open ChoreKey there, tap the 🛡️ icon, and enter your parent code.</p>
 
       {s.settings.parentCode && (
         <>
@@ -154,16 +141,20 @@ export default function Settings() {
         )}
         {s.kids.map((k) => {
           const bal = balanceCents(s.moneyLedger, k.id);
+          const lastPaid = s.moneyLedger.find((e) => e.kidId === k.id && e.kind === 'payout');
           return (
             <div key={k.id} className="group-row">
               <Avatar kid={k} size="sm" />
-              <div className="spacer"><div className="title">{k.name}</div><div className="sub">stash: {fmtMoney(bal)}</div></div>
-              {bal > 0 && <button className="btn btn--tint" onClick={() => { if (confirm(`Mark ${fmtMoney(bal)} paid to ${k.name}? This zeroes their stash.`)) s.recordMoney(k.id, -bal, 'payout', 'Paid out'); }}>Mark paid</button>}
+              <div className="spacer">
+                <div className="title">{k.name}</div>
+                <div className="sub">owed: {fmtMoney(bal)}{lastPaid ? ` · last paid ${new Date(lastPaid.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}</div>
+              </div>
+              <button className="btn btn--tint" onClick={() => setSettleFor(k)}>{bal > 0 ? 'Settle up' : 'History'}</button>
             </div>
           );
         })}
       </div>
-      <p className="hint" style={{ textAlign: 'left' }}>Side quests can also pay money instead of points — pick 💵 when you drop one. “Mark paid” records the hand-over of real cash.</p>
+      <p className="hint" style={{ textAlign: 'left' }}>Side quests can also pay money instead of points — pick 💵 when you drop one. “Settle up” shows everything earned since the last payout and records the hand-over of real cash.</p>
 
       <div className="section-label">🌙 Night watch</div>
       <div className="group">
@@ -203,6 +194,8 @@ export default function Settings() {
       </div>
       <p className="hint">Resets at {fmtTime(s.settings.resetTime)}</p>
       {s.signOut && <button className="btn btn--outline" onClick={() => s.signOut!()}>Sign out</button>}
+
+      {settleFor && <SettleSheet kid={settleFor} onClose={() => setSettleFor(null)} />}
 
       {rewardDraft && (
         <div className="sheet-backdrop" onClick={() => setRewardDraft(null)}>
@@ -258,6 +251,73 @@ export default function Settings() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Per-kid money view: what's owed, itemized since the last payout, and the
+ * "Paid $X" moment (partial amounts allowed). History shows payout receipts too,
+ * so a bonus a kid didn't get in week 1 is visibly still owed, not lost.
+ */
+function SettleSheet({ kid, onClose }: { kid: Kid; onClose: () => void }) {
+  const s = useStore();
+  const entries = s.moneyLedger.filter((e) => e.kidId === kid.id);
+  const bal = balanceCents(s.moneyLedger, kid.id);
+  const lastPayoutIdx = entries.findIndex((e) => e.kind === 'payout');
+  const unpaid = lastPayoutIdx === -1 ? entries : entries.slice(0, lastPayoutIdx);
+  const history = lastPayoutIdx === -1 ? [] : entries.slice(lastPayoutIdx);
+  const [amount, setAmount] = useState(Math.max(0, bal) / 100);
+  const cents = Math.round(amount * 100);
+  const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const label = (e: (typeof entries)[number]) =>
+    e.kind === 'payout' ? '💵 Paid out' : e.kind === 'streak' ? `🔥 ${e.note ?? 'Streak bonus'}` : e.kind === 'quest' ? `⭐ ${e.note ?? 'Side quest'}` : `✏️ ${e.note ?? 'Adjustment'}`;
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+        <div className="handle" />
+        <h2 style={{ fontSize: 22 }}>{kid.name}’s stash — {fmtMoney(bal)} owed</h2>
+        {unpaid.length > 0 && (
+          <>
+            <div className="section-label" style={{ margin: 0 }}>Since last payout</div>
+            <div className="col" style={{ gap: 4 }}>
+              {unpaid.map((e) => (
+                <div key={e.id} className="row" style={{ justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 700 }}>{label(e)}</span>
+                  <span className="kid-sub">{fmtDay(e.createdAt)} · <strong style={{ color: e.cents >= 0 ? 'var(--ok-text, #0D9488)' : 'var(--danger)' }}>{e.cents >= 0 ? '+' : ''}{fmtMoney(e.cents)}</strong></span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {unpaid.length === 0 && <p className="hint" style={{ textAlign: 'left', margin: 0 }}>Nothing new since the last payout.</p>}
+        {bal > 0 && (
+          <div className="row">
+            <span style={{ fontWeight: 800, fontSize: 18 }}>$</span>
+            <input className="field" type="number" min={0} step={0.25} style={{ width: 110 }} value={amount}
+              onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))} />
+            <button className="btn btn--primary spacer" disabled={cents < 1 || cents > bal}
+              onClick={() => { s.recordMoney(kid.id, -cents, 'payout', cents === bal ? 'Paid out' : 'Partial payout'); onClose(); }}>
+              Mark {fmtMoney(cents)} paid
+            </button>
+          </div>
+        )}
+        {history.length > 0 && (
+          <>
+            <div className="section-label" style={{ margin: 0 }}>History</div>
+            <div className="col" style={{ gap: 4, opacity: .65 }}>
+              {history.slice(0, 20).map((e) => (
+                <div key={e.id} className="row" style={{ justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 700 }}>{label(e)}</span>
+                  <span className="kid-sub">{fmtDay(e.createdAt)} · {e.cents >= 0 ? '+' : ''}{fmtMoney(e.cents)}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        <button className="btn btn--text" onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }

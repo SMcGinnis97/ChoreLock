@@ -13,10 +13,12 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   const s = useStore();
   const queue = s.instances.filter((i) => i.status === 'submitted');
   const questQueue = s.quests.filter((q) => q.status === 'submitted');
-  const approvedToday = s.instances.filter((i) => i.status === 'approved' && (i.photoUrl || i.videoUrl));
+  // Every approval is spot-checkable — proof-less chores included, so nothing auto-approves invisibly.
+  const approvedToday = s.instances.filter((i) => i.status === 'approved');
   const [rejecting, setRejecting] = useState<Target>(null);
   const [reason, setReason] = useState<string>('');
   const [noteText, setNoteText] = useState('');
+  const [keepStreak, setKeepStreak] = useState(true);
   const [dx, setDx] = useState(0);
   const startX = useRef<number | null>(null);
   // Approve feedback: stamp the card / float the points, then commit.
@@ -42,8 +44,8 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
   const sendBack = () => {
     if (!rejecting) return;
     const why = [reason, noteText].filter(Boolean).join(' — ');
-    if (rejecting.kind === 'chore') s.reject(rejecting.id, why); else s.reviewQuest(rejecting.id, false, why);
-    setRejecting(null); setReason(''); setNoteText('');
+    if (rejecting.kind === 'chore') s.reject(rejecting.id, why, keepStreak); else s.reviewQuest(rejecting.id, false, why);
+    setRejecting(null); setReason(''); setNoteText(''); setKeepStreak(true);
   };
 
   const RejectSheet = rejecting && (() => {
@@ -58,6 +60,15 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
           <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>{kidName ?? 'The kid'} sees this and gets a notification. The redo needs your approval.</p>
           <div className="reason-chips">{REASONS.map((r) => <button key={r} className={`reason-chip ${reason === r ? 'selected' : ''}`} onClick={() => setReason(r)}>{r}</button>)}</div>
           <textarea className="field" placeholder="Add a note (optional)" value={noteText} onChange={(e) => setNoteText(e.target.value)} />
+          {rejecting.kind === 'chore' && (
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <div><div style={{ fontWeight: 700 }}>Keep their streak alive 🔥</div><div className="kid-sub">Off = today breaks the streak unless the redo is approved</div></div>
+              <div className="seg" style={{ width: 130 }}>
+                <button className={keepStreak ? 'active' : ''} onClick={() => setKeepStreak(true)}>Keep</button>
+                <button className={!keepStreak ? 'active' : ''} onClick={() => setKeepStreak(false)}>Break</button>
+              </div>
+            </div>
+          )}
           <div className="row">
             <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setRejecting(null)}>Cancel</button>
             <button className="btn btn--danger-solid" style={{ flex: 1.4 }} disabled={!reason && !noteText} onClick={sendBack}>Send back</button>
@@ -122,13 +133,19 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
       <div className="section-label">Approved today — spot check</div>
       <div className="col">
         {approvedToday.map((i) => {
-          const k = s.kids.find((x) => x.id === i.kidId)!, c = s.chores.find((x) => x.id === i.choreId)!;
+          const k = s.kids.find((x) => x.id === i.kidId), c = s.chores.find((x) => x.id === i.choreId);
+          if (!k || !c) return null;
+          const photos = i.photoUrls ?? (i.photoUrl ? [i.photoUrl] : []);
+          // Attribution from the record itself, not the current toggle: no reviewer = the automation did it.
+          const reviewer = i.reviewedBy ? s.parents.find((p) => p.userId === i.reviewedBy) : undefined;
+          const byline = i.reviewedBy ? (reviewer && !reviewer.isMe ? ` · approved by ${reviewer.name ?? 'co-parent'}` : '') : ' · auto-approved';
           return (
             <div key={i.id} className="card row" style={{ padding: 10 }}>
-              <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--track)', cursor: 'zoom-in' }} onClick={() => zoomMedia([i.photoUrl, i.videoUrl && { src: i.videoUrl, isVideo: true }])}>
-                {i.photoUrl ? <img src={i.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : i.videoUrl ? <video src={i.videoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+              <div style={{ width: 74, height: 74, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--track)', cursor: photos.length || i.videoUrl ? 'zoom-in' : 'default', position: 'relative', display: 'grid', placeItems: 'center' }} onClick={() => (photos.length || i.videoUrl) && zoomMedia([...photos, i.videoUrl && { src: i.videoUrl, isVideo: true }])}>
+                {photos[0] ? <img src={photos[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : i.videoUrl ? <video src={i.videoUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 28 }} aria-hidden>{c.emoji}</span>}
+                {photos.length > 1 && <span className="chip chip--todo" style={{ position: 'absolute', right: 2, bottom: 2, padding: '1px 5px', fontSize: 10 }}>+{photos.length - 1}</span>}
               </div>
-              <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} · {c.name}</div><div className="kid-sub">{i.submittedAt ?? 'today'}{s.settings.autoApprove && i.attempt === 1 ? ' · auto-approved' : ''}</div></div>
+              <div className="spacer"><div style={{ fontWeight: 800 }}>{k.name} · {c.name}</div><div className="kid-sub">{i.submittedAt ?? 'today'}{byline}{!photos.length && !i.videoUrl ? ' · no proof required' : ''}</div></div>
               <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => setRejecting({ kind: 'chore', id: i.id })}>Reject</button>
             </div>
           );
@@ -165,11 +182,24 @@ export default function Approvals({ state }: { state?: 'loading' | 'error' }) {
     <div className="screen">
       <div className="row row--between"><h1>Approvals</h1><span className="chip chip--todo">1 of {queue.length}</span></div>
       <div className="approval-card" style={{ transform: `translateX(${dx}px) rotate(${dx / 30}deg)`, transition: startX.current === null ? 'transform .15s' : 'none', touchAction: 'pan-y' }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-        <div className="approval-photo">
-          {current.photoUrl ? <img src={current.photoUrl} alt="" draggable={false} style={{ cursor: 'zoom-in' }} onClick={() => { if (Math.abs(dx) < 8) zoomMedia([current.photoUrl]); }} /> : current.videoUrl ? <video src={current.videoUrl} controls autoPlay muted loop playsInline draggable={false} /> : null}
-          <span className="timestamp">{current.submittedAt}</span>
-        </div>
-        {current.photoUrl && current.videoUrl && <video src={current.videoUrl} controls muted playsInline style={{ width: '100%', maxHeight: 200, background: '#000' }} />}
+        {(() => {
+          const photos = current.photoUrls ?? (current.photoUrl ? [current.photoUrl] : []);
+          return (
+            <>
+              <div className="approval-photo">
+                {photos[0] ? <img src={photos[0]} alt="" draggable={false} style={{ cursor: 'zoom-in' }} onClick={() => { if (Math.abs(dx) < 8) zoomMedia(photos); }} /> : current.videoUrl ? <video src={current.videoUrl} controls autoPlay muted loop playsInline draggable={false} /> : null}
+                <span className="timestamp">{current.submittedAt}</span>
+                {photos.length > 1 && <span className="chip chip--todo" style={{ position: 'absolute', left: 8, top: 8 }}>{photos.length} photos</span>}
+              </div>
+              {photos.length > 1 && (
+                <div className="row" style={{ gap: 6, overflowX: 'auto', padding: '6px 8px 0' }}>
+                  {photos.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }} onClick={() => zoomMedia(photos, n)} />)}
+                </div>
+              )}
+              {photos.length > 0 && current.videoUrl && <video src={current.videoUrl} controls muted playsInline style={{ width: '100%', maxHeight: 200, background: '#000' }} />}
+            </>
+          );
+        })()}
         <div className="approval-body">
           <div className="row"><Avatar kid={kid} /><div><div className="approval-title">{kid.name} · {chore.name}</div><div className="kid-sub">{chore.required ? 'Required for unlock' : 'Bonus chore'} · {ordinal(current.attempt)} try</div></div></div>
           {current.note && <div className="quote">“{current.note}”</div>}

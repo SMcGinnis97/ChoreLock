@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { balanceCents, criticalLateMin, criticalsForKid, fmtMoney, hasPass, isGrounded, useStore } from '../../lib/store';
+import { balanceCents, criticalLateMin, criticalsForKid, fmtMoney, hasPass, isGrounded, isMissed, useStore } from '../../lib/store';
 import WeNeedCard from '../../components/weneed';
 import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
@@ -83,12 +83,16 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
       <div className="col">
         {myQuests.map((q) => {
           const actionable = q.status === 'claimed' || q.status === 'rejected';
+          // Claim timer: 30 min to submit, then a reminder and 15 more before it goes back in the pool.
+          const claimMin = q.status === 'claimed' && q.claimedAt ? Math.floor((Date.now() - new Date(q.claimedAt).getTime()) / 60_000) : null;
+          const timeLeft = claimMin === null ? null : Math.max(0, 45 - claimMin);
           return (
             <button key={q.id} className={`card card--chore is-bonus ${q.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/quest/${q.id}`)} style={{ flexWrap: 'wrap' }}>
               <span className="chore-emoji">⭐</span>
               <div className="spacer">
                 <div className="chore-title">{q.title}</div>
                 {q.status === 'rejected' && q.rejectionReason ? <div className="chore-sub chore-sub--reject">“{q.rejectionReason}”</div> : q.note ? <div className="chore-sub">{q.note}</div> : <div className="chore-sub">Worth {q.cents ? fmtMoney(q.cents) : `${q.points} points`}</div>}
+                {timeLeft !== null && <div className="chore-sub" style={timeLeft <= 15 ? { color: 'var(--danger)', fontWeight: 700 } : undefined}>⏳ {timeLeft > 0 ? `${timeLeft} min before it goes back up for grabs` : 'going back up for grabs…'}</div>}
               </div>
               {actionable ? <span className="btn btn--pill">📷 Snap it</span> : <span className="chip chip--submitted">Submitted</span>}
               {q.promptUrls.length > 0 && <div className="row" style={{ width: '100%', gap: 6, overflowX: 'auto' }}>{q.promptUrls.map((u, n) => <img key={n} src={u} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, flexShrink: 0, cursor: 'zoom-in' }} onClick={(e) => { e.stopPropagation(); zoomMedia(q.promptUrls, n); }} />)}</div>}
@@ -209,16 +213,18 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
           <div className="section-label">Today’s chores</div>
           <div className="col">
             {required.map(({ i, c }) => {
-              const actionable = i.status === 'todo' || i.status === 'rejected';
+              const missed = isMissed(i, c);
+              const actionable = !missed && (i.status === 'todo' || i.status === 'rejected');
               return (
-                <button key={i.id} className={`card card--chore ${i.id === nextId ? 'is-next' : ''} ${i.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/submit/${i.id}`)}>
+                <button key={i.id} className={`card card--chore ${!missed && i.id === nextId ? 'is-next' : ''} ${i.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/submit/${i.id}`)} style={missed ? { opacity: .55 } : undefined}>
                   <span className="chore-emoji">{c.emoji}</span>
                   <div className="spacer">
-                    <div className="chore-title">{c.name}{c.dueTime && (i.status === 'todo' || i.status === 'rejected') ? <span className="chip chip--todo" style={{ marginLeft: 8 }}>due {fmtDue(c.dueTime)}</span> : null}</div>
-                    {i.status === 'rejected' && i.rejectionReason && <div className="chore-sub chore-sub--reject">“{i.rejectionReason}”</div>}
-                    {i.status === 'todo' && c.instruction && <div className="chore-sub">{c.instruction}</div>}
+                    <div className="chore-title">{c.name}{c.dueTime && !missed && (i.status === 'todo' || i.status === 'rejected') ? <span className="chip chip--todo" style={{ marginLeft: 8 }}>due {fmtDue(c.dueTime)}</span> : null}</div>
+                    {missed && <div className="chore-sub" style={{ color: 'var(--danger)' }}>⌛ Missed — it was due {fmtDue(c.dueTime!)}. Today won’t count for your streak.</div>}
+                    {!missed && i.status === 'rejected' && i.rejectionReason && <div className="chore-sub chore-sub--reject">“{i.rejectionReason}”</div>}
+                    {!missed && i.status === 'todo' && c.instruction && <div className="chore-sub">{c.instruction}</div>}
                   </div>
-                  {i.id === nextId ? <span className="btn btn--pill">📷 Snap it</span> : <StatusChip status={i.status} />}
+                  {missed ? <span className="chip chip--blocked">Missed</span> : i.id === nextId ? <span className="btn btn--pill">📷 Snap it</span> : <StatusChip status={i.status} />}
                 </button>
               );
             })}

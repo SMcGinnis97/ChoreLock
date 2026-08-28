@@ -15,6 +15,7 @@
 //                   silent switch at full volume.
 //   critical     -> time-sensitive alert for critical-task fires and escalations ("chore" = task title,
 //                   "reason" = escalation message). Sent by private.run_criticals.
+//   quest        -> generic title/body pass-through (quest claim timers, chore hand-offs).
 //
 // Secrets (supabase secrets set ...): APNS_KEY (p8 contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (app.chorelock),
 // APNS_ENV ('sandbox' | 'production') — the env tried FIRST; the other is a per-token fallback.
@@ -94,6 +95,7 @@ Deno.serve(async (req) => {
     : kind === 'critical' ? { title: `🚨 ${chore}`, body: reason ?? 'This one can’t wait — mark it done in ChoreKey.' }
     : kind === 'quarter' ? { title: '🎉 15 minutes granted!', body: 'Make it count — the clock is running.' }
     : kind === 'money' ? { title: `💵 ${chore}`, body: reason ?? 'Money added to your stash.' }
+    : kind === 'quest' ? { title: chore ?? 'Side quest', body: reason ?? 'Check ChoreKey.' } // generic title/body pass-through
     : { title: 'Sent back', body: `${chore}: ${reason ?? 'take another look'}` };
   const sound = (kind === 'summon' || kind === 'critical') && Deno.env.get('APNS_CRITICAL') === '1'
     ? { critical: 1, name: 'default', volume: 1.0 } // needs the Critical Alerts entitlement

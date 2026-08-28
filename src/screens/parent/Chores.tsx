@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { criticalLateMin, useStore, type CriticalDraft } from '../../lib/store';
 import { Avatar, Switch } from '../../components/ui';
-import type { Chore, Recurrence, Rotation } from '../../lib/types';
+import { zoomMedia } from '../../components/lightbox';
+import AssignBoard from './Assign';
+import type { Chore, OverdueMode, ProofMedia, Recurrence, Rotation } from '../../lib/types';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const ROTATIONS: { value: Rotation; label: string; sub: string }[] = [
@@ -11,7 +15,13 @@ const ROTATIONS: { value: Rotation; label: string; sub: string }[] = [
   { value: 'weekly', label: 'Weekly', sub: 'Next kid each week' },
   { value: 'after_done', label: 'After done', sub: 'Next kid after each approval' },
 ];
-const blank = (): Omit<Chore, 'id'> => ({ name: '', emoji: '🧹', instruction: '', kidIds: [], recurrence: 'daily', days: [], rotation: 'none', required: true, photoProof: true, proofType: 'photo' });
+const blank = (): Omit<Chore, 'id'> => ({ name: '', emoji: '🧹', instruction: '', kidIds: [], recurrence: 'daily', days: [], rotation: 'none', overdue: 'block', required: true, photoProof: true, proofType: 'photo' });
+const OVERDUE: { value: OverdueMode; label: string; sub: string; needsDue: boolean }[] = [
+  { value: 'block', label: 'Keep blocking', sub: 'Wi-Fi stays off until it’s approved — however late.', needsDue: false },
+  { value: 'expire', label: 'Expires', sub: 'Past the due time it counts as missed: Wi-Fi unaffected, streak breaks.', needsDue: true },
+  { value: 'escalate', label: 'Escalate', sub: 'Keeps blocking AND flags it on your dashboard the moment it’s late.', needsDue: true },
+  { value: 'rollover', label: 'Rolls over', sub: 'Unfinished at reset: streak survives, the chore books again tomorrow.', needsDue: false },
+];
 const blankCritical = (kidId: string): CriticalDraft => ({
   kidId, title: '', emoji: '🐶', firstFire: '14:00', repeatMinutes: 120,
   lockAfterMin: 5, broadcastAfterMin: 15, lockAllAfterMin: 30, followupDelayMin: 15, active: true,
@@ -34,32 +44,59 @@ export const fmtDue = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Num
 
 export default function Chores() {
   const s = useStore();
+  const [view, setView] = useState<'library' | 'assign'>('library');
   const [editing, setEditing] = useState<(Omit<Chore, 'id'> & { id?: string }) | null>(null);
   const [editingCritical, setEditingCritical] = useState<CriticalDraft | null>(null);
 
-  if (editing) return <ChoreForm value={editing} onChange={setEditing} onCancel={() => setEditing(null)} onSave={() => { s.saveChore(editing); setEditing(null); }} />;
+  if (editing) return <ChoreForm value={editing} onChange={setEditing} onCancel={() => setEditing(null)} onSave={(refMedia) => { s.saveChore(editing, refMedia); setEditing(null); }} />;
   if (editingCritical) return <CriticalForm value={editingCritical} onChange={setEditingCritical} onCancel={() => setEditingCritical(null)} onSave={() => { s.saveCriticalTask(editingCritical); setEditingCritical(null); }} />;
+
+  if (view === 'assign')
+    return (
+      <div className="screen">
+        <div className="row row--between"><h1>Chores</h1><button className="btn btn--pill" onClick={() => setEditing(blank())}>+ New chore</button></div>
+        <div className="seg">
+          <button onClick={() => setView('library')}>Library</button>
+          <button className="active">Assign</button>
+        </div>
+        <AssignBoard onEditChore={(c) => setEditing({ ...c })} />
+      </div>
+    );
 
   return (
     <div className="screen">
       <div className="row row--between"><h1>Chores</h1><button className="btn btn--pill" onClick={() => setEditing(blank())}>+ New chore</button></div>
-      <div className="col">
-        {s.chores.map((c) => (
-          <button key={c.id} className={`card card--chore ${c.required ? '' : 'is-bonus'}`} onClick={() => setEditing({ ...c })}>
-            <span className="chore-emoji">{c.emoji}</span>
-            <div className="spacer">
-              <div className="chore-title">{c.name}</div>
-              <div className="chore-sub">
-                {c.recurrence === 'daily' ? 'Daily' : c.recurrence === 'weekdays' ? 'Weekdays' : c.days.map((d) => DAYS[d]).join(' ')}
-                {c.rotation !== 'none' && ` · rotates ${ROTATIONS.find((r) => r.value === c.rotation)?.label.toLowerCase()}`}
-                {c.dueTime && ` · due ${fmtDue(c.dueTime)}`}
-                {` · ${c.required ? 'Required' : 'Bonus'}`}
-              </div>
-            </div>
-            <div className="row" style={{ gap: -4 }}>{c.kidIds.map((id) => { const k = s.kids.find((x) => x.id === id); return k ? <Avatar key={id} kid={k} size="sm" /> : null; })}</div>
-          </button>
-        ))}
+      <div className="seg">
+        <button className="active">Library</button>
+        <button onClick={() => setView('assign')}>Assign</button>
       </div>
+      <div className="col">
+        {s.chores.map((c) => {
+          const group = c.groupId ? s.groups.find((g) => g.id === c.groupId) : undefined;
+          const unassigned = !group && c.kidIds.length === 0;
+          return (
+            <button key={c.id} className={`card card--chore ${c.required ? '' : 'is-bonus'}`} onClick={() => setEditing({ ...c })}>
+              <span className="chore-emoji">{c.emoji}</span>
+              <div className="spacer">
+                <div className="chore-title">{c.name}</div>
+                <div className="chore-sub">
+                  {c.recurrence === 'daily' ? 'Daily' : c.recurrence === 'weekdays' ? 'Weekdays' : c.days.map((d) => DAYS[d]).join(' ')}
+                  {group ? ` · list: ${group.emoji} ${group.name}` : c.rotation !== 'none' ? ` · rotates ${ROTATIONS.find((r) => r.value === c.rotation)?.label.toLowerCase()}` : ''}
+                  {c.dueTime && ` · due ${fmtDue(c.dueTime)}`}
+                  {c.overdue !== 'block' && ` · ${OVERDUE.find((o) => o.value === c.overdue)?.label.toLowerCase()}`}
+                  {` · ${c.required ? 'Required' : 'Bonus'}`}
+                </div>
+              </div>
+              {unassigned
+                ? <span className="chip chip--todo">Not assigned</span>
+                : <div className="row" style={{ gap: -4 }}>{(group ? group.kidIds : c.kidIds).map((id) => { const k = s.kids.find((x) => x.id === id); return k ? <Avatar key={id} kid={k} size="sm" /> : null; })}</div>}
+            </button>
+          );
+        })}
+      </div>
+      {s.chores.some((c) => !c.groupId && c.kidIds.length === 0) && (
+        <p className="hint" style={{ textAlign: 'left', margin: 0 }}>Chores with no one assigned don’t appear on anyone’s day — hand them out on the Assign tab.</p>
+      )}
 
       <div className="row row--between" style={{ marginTop: 8 }}>
         <div className="section-label" style={{ margin: 0 }}>🚨 Critical tasks</div>
@@ -195,20 +232,48 @@ function CriticalForm({ value, onChange, onCancel, onSave }: { value: CriticalDr
   );
 }
 
-function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, 'id'> & { id?: string }; onChange: (v: Omit<Chore, 'id'> & { id?: string }) => void; onCancel: () => void; onSave: () => void }) {
+function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, 'id'> & { id?: string }; onChange: (v: Omit<Chore, 'id'> & { id?: string }) => void; onCancel: () => void; onSave: (refMedia: ProofMedia[]) => void }) {
   const s = useStore();
+  const [refMedia, setRefMedia] = useState<ProofMedia[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
   const set = (patch: Partial<Chore>) => onChange({ ...value, ...patch });
   const toggleKid = (id: string) => set({ kidIds: value.kidIds.includes(id) ? value.kidIds.filter((k) => k !== id) : [...value.kidIds, id] });
   const toggleDay = (d: number) => set({ days: value.days.includes(d) ? value.days.filter((x) => x !== d) : [...value.days, d].sort() });
-  const valid = value.name.trim() && value.kidIds.length > 0 && (value.recurrence !== 'custom' || value.days.length > 0);
+  // Assignment is optional now — an unassigned chore lands in the library and gets handed out on the Assign tab.
+  const valid = value.name.trim() && (value.recurrence !== 'custom' || value.days.length > 0);
   const canRotate = value.kidIds.length > 1;
+  const group = value.groupId ? s.groups.find((g) => g.id === value.groupId) : undefined;
+  const refCount = (value.refUrls?.length ?? 0) + refMedia.length;
+
+  const dataUrlToMedia = async (dataUrl: string): Promise<ProofMedia> => ({
+    blob: await (await fetch(dataUrl)).blob(), ext: 'jpg', contentType: 'image/jpeg', previewUrl: dataUrl, isVideo: false,
+  });
+  const attachRef = async () => {
+    if (Capacitor.isNativePlatform()) {
+      const r = await Camera.getPhoto({ source: CameraSource.Prompt, resultType: CameraResultType.DataUrl, quality: 70, width: 1280, correctOrientation: true });
+      if (r.dataUrl) {
+        const media = await dataUrlToMedia(r.dataUrl);
+        setRefMedia((cur) => [...cur, media].slice(0, 5));
+      }
+    } else fileRef.current?.click();
+  };
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    const dataUrl = await new Promise<string>((res) => { const rd = new FileReader(); rd.onload = () => res(rd.result as string); rd.readAsDataURL(f); });
+    const media = await dataUrlToMedia(dataUrl);
+    setRefMedia((cur) => [...cur, media].slice(0, 5));
+  };
+  const removeExistingRef = (n: number) => set({
+    refUrls: (value.refUrls ?? []).filter((_, i) => i !== n),
+    refPaths: (value.refPaths ?? []).filter((_, i) => i !== n),
+  });
 
   return (
     <div className="screen">
       <div className="row row--between">
         <button className="btn btn--text" onClick={onCancel}>Cancel</button>
         <h3>{value.id ? 'Edit chore' : 'New chore'}</h3>
-        <button className="btn btn--text" disabled={!valid} onClick={onSave}>Save</button>
+        <button className="btn btn--text" disabled={!valid} onClick={() => onSave(refMedia)}>Save</button>
       </div>
 
       <div className="section-label">Chore name</div>
@@ -218,20 +283,46 @@ function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, '
       </div>
       <input className="field" placeholder="Photo instruction, e.g. “Show the full bowl”" value={value.instruction ?? ''} onChange={(e) => set({ instruction: e.target.value })} />
 
-      <div className="section-label">Assign to</div>
-      {s.kids.length === 0 ? (
-        <p className="hint" style={{ textAlign: 'left', margin: 0 }}>⚠️ No kids yet — add one in Settings → Kids first. A chore needs at least one kid assigned.</p>
-      ) : (
-        <div className="assign-chips">
-          {s.kids.map((k) => (
-            <button key={k.id} className={`assign-chip ${value.kidIds.includes(k.id) ? 'selected' : ''}`} onClick={() => toggleKid(k.id)}>
-              <Avatar kid={k} size="sm" />{k.name}{value.kidIds.includes(k.id) && ' ✓'}
-            </button>
+      <div className="section-label">Reference photos (optional, max 5)</div>
+      <p className="hint" style={{ textAlign: 'left', margin: 0 }}>Show what “done” looks like — kids see these on the chore.</p>
+      {refCount > 0 && (
+        <div className="row" style={{ gap: 8, overflowX: 'auto' }}>
+          {(value.refUrls ?? []).map((u, n) => (
+            <div key={`e${n}`} style={{ position: 'relative', flexShrink: 0 }}>
+              <img src={u} alt="" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12, cursor: 'zoom-in' }} onClick={() => zoomMedia([...(value.refUrls ?? []), ...refMedia.map((m) => m.previewUrl)], n)} />
+              <button className="icon-btn" style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, background: 'var(--danger)', color: '#fff' }} onClick={() => removeExistingRef(n)}>×</button>
+            </div>
+          ))}
+          {refMedia.map((m, n) => (
+            <div key={`n${n}`} style={{ position: 'relative', flexShrink: 0 }}>
+              <img src={m.previewUrl} alt="" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12, cursor: 'zoom-in' }} onClick={() => zoomMedia([...(value.refUrls ?? []), ...refMedia.map((x) => x.previewUrl)], (value.refUrls?.length ?? 0) + n)} />
+              <button className="icon-btn" style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, background: 'var(--danger)', color: '#fff' }} onClick={() => setRefMedia((cur) => cur.filter((_, i) => i !== n))}>×</button>
+            </div>
           ))}
         </div>
       )}
+      {refCount < 5 && <button className="btn btn--outline" onClick={attachRef}>📸 {refCount ? 'Add another photo' : 'Add a photo'}</button>}
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
 
-      {canRotate && (
+      <div className="section-label">Assign to</div>
+      {group ? (
+        <p className="hint" style={{ textAlign: 'left', margin: 0 }}>📋 Part of the “{group.emoji} {group.name}” list — whoever holds the list this week does it. Manage that on the Assign tab, or <button className="btn btn--text" style={{ display: 'inline', padding: 0, minHeight: 0 }} onClick={() => set({ groupId: undefined })}>pull it out of the list</button>.</p>
+      ) : s.kids.length === 0 ? (
+        <p className="hint" style={{ textAlign: 'left', margin: 0 }}>⚠️ No kids yet — add one in Settings → Kids first.</p>
+      ) : (
+        <>
+          <div className="assign-chips">
+            {s.kids.map((k) => (
+              <button key={k.id} className={`assign-chip ${value.kidIds.includes(k.id) ? 'selected' : ''}`} onClick={() => toggleKid(k.id)}>
+                <Avatar kid={k} size="sm" />{k.name}{value.kidIds.includes(k.id) && ' ✓'}
+              </button>
+            ))}
+          </div>
+          {value.kidIds.length === 0 && <p className="hint" style={{ textAlign: 'left', margin: 0 }}>No one selected — the chore saves to the library and waits on the Assign tab.</p>}
+        </>
+      )}
+
+      {!group && canRotate && (
         <>
           <div className="section-label">Who does it</div>
           <div className="seg seg--wrap">
@@ -250,12 +341,23 @@ function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, '
       <div className="section-label">Due time</div>
       <div className="row">
         <input className="field" type="time" style={{ width: 140 }} value={value.dueTime ?? ''} onChange={(e) => set({ dueTime: e.target.value || undefined })} />
-        {value.dueTime && <button className="btn btn--text" onClick={() => set({ dueTime: undefined })}>Clear</button>}
+        {value.dueTime && <button className="btn btn--text" onClick={() => set({ dueTime: undefined, ...(value.overdue === 'expire' || value.overdue === 'escalate' ? { overdue: 'block' as OverdueMode } : {}) })}>Clear</button>}
       </div>
       <p className="hint" style={{ textAlign: 'left', margin: 0 }}>
         {value.dueTime
           ? `Wi-Fi stays on until ${fmtDue(value.dueTime)} — after that it shuts off until this chore is approved.`
           : 'No due time: this chore blocks Wi-Fi all day until it’s approved (resets at midnight).'}
+      </p>
+
+      <div className="section-label">If it’s not done in time</div>
+      <div className="seg seg--wrap">
+        {OVERDUE.filter((o) => !o.needsDue || value.dueTime).map((o) => (
+          <button key={o.value} className={value.overdue === o.value ? 'active' : ''} onClick={() => set({ overdue: o.value })}>{o.label}</button>
+        ))}
+      </div>
+      <p className="hint" style={{ textAlign: 'left', margin: 0 }}>
+        {OVERDUE.find((o) => o.value === value.overdue)?.sub}
+        {!value.dueTime && ' Set a due time to unlock “Expires” and “Escalate”.'}
       </p>
 
       <div className="group">
@@ -278,12 +380,11 @@ function ChoreForm({ value, onChange, onCancel, onSave }: { value: Omit<Chore, '
         <p className="hint" style={{ margin: 0 }}>
           To save: {[
             !value.name.trim() && 'give it a name',
-            value.kidIds.length === 0 && 'assign at least one kid',
             value.recurrence === 'custom' && value.days.length === 0 && 'pick the days it repeats',
           ].filter(Boolean).join(' · ')}
         </p>
       )}
-      <button className="btn btn--primary" disabled={!valid} onClick={onSave}>Save chore</button>
+      <button className="btn btn--primary" disabled={!valid} onClick={() => onSave(refMedia)}>Save chore</button>
     </div>
   );
 }

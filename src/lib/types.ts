@@ -4,6 +4,8 @@ export type Recurrence = 'daily' | 'weekdays' | 'custom';
 export type Rotation = 'none' | 'daily' | 'weekly' | 'every_other_day' | 'after_done';
 export type QuestStatus = 'open' | 'claimed' | 'submitted' | 'approved' | 'rejected';
 export type ProofType = 'photo' | 'video' | 'photo_video';
+/** What happens when a chore isn't approved by its due time (or, for rollover, by the daily reset). */
+export type OverdueMode = 'block' | 'expire' | 'escalate' | 'rollover';
 
 export interface Kid {
   id: string;
@@ -42,9 +44,22 @@ export interface Chore {
   days: number[]; // 0=Sun..6=Sat, used when recurrence === 'custom'
   rotation: Rotation; // how the chore moves between assigned kids
   dueTime?: string; // "HH:MM" — only blocks Wi-Fi after this time; unset = blocks all day
+  overdue: OverdueMode; // what happens past the due time (expire/escalate need dueTime set)
   required: boolean; // required for unlock; false = bonus
   photoProof: boolean; // proof needed at all
   proofType: ProofType; // what kind(s) of live proof
+  refPaths?: string[]; // storage paths of the parent's reference photos (max 5)
+  refUrls?: string[]; // signed URLs for refPaths
+  groupId?: string; // set = assignment comes from the chore group's rotation, not kidIds
+}
+
+/** A named chore list assigned to an ordered kid rotation that advances weekly. */
+export interface ChoreGroup {
+  id: string;
+  name: string;
+  emoji: string;
+  kidIds: string[]; // rotation order
+  rotationIndex: number; // this week's kid = kidIds[rotationIndex % length] (away kids skipped)
 }
 
 /** Today's instance of a chore for one kid. */
@@ -55,8 +70,11 @@ export interface ChoreInstance {
   date: string; // YYYY-MM-DD
   status: ChoreStatus;
   attempt: number;
-  photoUrl?: string;
+  photoUrl?: string; // first proof photo (legacy single-photo spots)
+  photoUrls?: string[]; // all proof photos (max 5)
   videoUrl?: string; // short clip proof (chore may require photo, video, or both)
+  rolled?: boolean; // unfinished rollover chore, re-booked the next day (streak-neutral)
+  streakExempt?: boolean; // parent kept the streak alive when rejecting
   note?: string;
   submittedAt?: string;
   rejectionReason?: string;
@@ -78,6 +96,7 @@ export interface SideQuest {
   proofIsVideo?: boolean;
   proofNote?: string;
   rejectionReason?: string;
+  claimedAt?: string; // ISO; set only on kid-claimed quests — drives the claim timeout
   submittedAt?: string;
   reviewedBy?: string; // parent user id
   reviewedAt?: string; // ISO
@@ -100,9 +119,9 @@ export interface RewardClaim {
   resolvedAt?: string; // ISO
 }
 
-/** What a chore submission carries — one or both, per the chore's proofType. */
+/** What a chore submission carries, per the chore's proofType. Photos cap at 5. */
 export interface ProofBundle {
-  photo?: ProofMedia;
+  photos: ProofMedia[];
   video?: ProofMedia;
 }
 

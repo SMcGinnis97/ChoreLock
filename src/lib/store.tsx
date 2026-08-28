@@ -4,7 +4,7 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
+import type { Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
 import { applyLockState, type ShieldContent } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -93,15 +93,38 @@ export function buildShieldContent(
   };
 }
 
-/** True when a required instance blocks Wi-Fi right now (due-time aware). */
+/** True when a chore's due time has passed today. False when it has no due time. */
+export const pastDue = (c: Chore | undefined) => {
+  if (!c?.dueTime) return false;
+  const [h, m] = c.dueTime.split(':').map(Number);
+  const due = new Date(); due.setHours(h, m, 0, 0);
+  return new Date() >= due;
+};
+
+/** An 'expire' chore that blew past its due time unapproved — dead for today, breaks the streak. */
+export const isMissed = (i: ChoreInstance, c: Chore | undefined) =>
+  !!c && c.overdue === 'expire' && i.status !== 'approved' && pastDue(c);
+
+/** True when a required instance blocks Wi-Fi right now (due-time and overdue-mode aware). */
 export const blocksNow = (i: ChoreInstance, c: Chore | undefined) => {
   if (!c?.required || i.status === 'approved') return false;
   if (c.dueTime) {
-    const [h, m] = c.dueTime.split(':').map(Number);
-    const due = new Date(); due.setHours(h, m, 0, 0);
-    if (new Date() < due) return false;
+    if (!pastDue(c)) return false;
+    if (c.overdue === 'expire') return false; // missed, not blocking — the streak takes the hit
   }
   return true;
+};
+
+/** Whose turn a chore group is this week — away kids skipped, same rule as the server. */
+export const groupTurnKid = (g: ChoreGroup, kids: Kid[]): string | undefined => {
+  const n = g.kidIds.length;
+  if (!n) return undefined;
+  for (let i = 0; i < n; i++) {
+    const id = g.kidIds[(g.rotationIndex + i) % n];
+    const k = kids.find((x) => x.id === id);
+    if (!(k?.absentUntil && k.absentUntil >= today())) return id;
+  }
+  return g.kidIds[g.rotationIndex % n];
 };
 
 const KIDS: Kid[] = [
@@ -111,12 +134,12 @@ const KIDS: Kid[] = [
 ];
 
 const CHORES: Chore[] = [
-  { id: 'c1', name: 'Feed the dog', emoji: '🐶', instruction: 'Show the full bowl', kidIds: ['k3'], recurrence: 'daily', days: [], rotation: 'none', proofType: 'photo', required: true, photoProof: true },
-  { id: 'c2', name: 'Unload dishwasher', emoji: '🍽️', instruction: 'Show the empty dishwasher', kidIds: ['k3', 'k2'], recurrence: 'daily', days: [], rotation: 'daily', proofType: 'photo', required: true, photoProof: true },
-  { id: 'c3', name: 'Make your bed', emoji: '🛏️', instruction: 'Show the whole bed', kidIds: ['k1', 'k2', 'k3'], recurrence: 'daily', days: [], rotation: 'none', proofType: 'photo', required: true, photoProof: true },
-  { id: 'c4', name: 'Take out trash', emoji: '🗑️', kidIds: ['k3'], recurrence: 'weekdays', days: [], rotation: 'none', proofType: 'photo', required: true, photoProof: true, dueTime: '17:00' },
-  { id: 'c5', name: 'Water the plants', emoji: '🪴', kidIds: ['k3'], recurrence: 'daily', days: [], rotation: 'none', proofType: 'photo', required: false, photoProof: true },
-  { id: 'c6', name: 'Vacuum living room', emoji: '🧹', kidIds: ['k1'], recurrence: 'custom', days: [1, 4], rotation: 'none', proofType: 'photo', required: true, photoProof: true },
+  { id: 'c1', name: 'Feed the dog', emoji: '🐶', instruction: 'Show the full bowl', kidIds: ['k3'], recurrence: 'daily', days: [], rotation: 'none', overdue: 'block', proofType: 'photo', required: true, photoProof: true },
+  { id: 'c2', name: 'Unload dishwasher', emoji: '🍽️', instruction: 'Show the empty dishwasher', kidIds: ['k3', 'k2'], recurrence: 'daily', days: [], rotation: 'daily', overdue: 'block', proofType: 'photo', required: true, photoProof: true },
+  { id: 'c3', name: 'Make your bed', emoji: '🛏️', instruction: 'Show the whole bed', kidIds: ['k1', 'k2', 'k3'], recurrence: 'daily', days: [], rotation: 'none', overdue: 'block', proofType: 'photo', required: true, photoProof: true },
+  { id: 'c4', name: 'Take out trash', emoji: '🗑️', kidIds: ['k3'], recurrence: 'weekdays', days: [], rotation: 'none', overdue: 'block', proofType: 'photo', required: true, photoProof: true, dueTime: '17:00' },
+  { id: 'c5', name: 'Water the plants', emoji: '🪴', kidIds: ['k3'], recurrence: 'daily', days: [], rotation: 'none', overdue: 'block', proofType: 'photo', required: false, photoProof: true },
+  { id: 'c6', name: 'Vacuum living room', emoji: '🧹', kidIds: ['k1'], recurrence: 'custom', days: [1, 4], rotation: 'none', overdue: 'block', proofType: 'photo', required: true, photoProof: true },
 ];
 
 const d = today();
@@ -169,7 +192,7 @@ export interface CriticalDraft extends Omit<CriticalTask, 'id' | 'nextFireAt'> {
 export interface Store {
   role: Role; setRole: (r: Role) => void;
   currentKidId: string; setCurrentKidId: (id: string) => void;
-  kids: Kid[]; chores: Chore[]; instances: ChoreInstance[]; quests: SideQuest[]; devices: Device[]; settings: Settings;
+  kids: Kid[]; chores: Chore[]; groups: ChoreGroup[]; instances: ChoreInstance[]; quests: SideQuest[]; devices: Device[]; settings: Settings;
   summons: Summon[];
   criticalTasks: CriticalTask[]; criticalInstances: CriticalInstance[];
   unlockRequests: UnlockRequest[];
@@ -183,7 +206,8 @@ export interface Store {
   // actions
   submit: (instanceId: string, proof: ProofBundle, note?: string) => void;
   approve: (instanceId: string) => void;
-  reject: (instanceId: string, reason: string) => void;
+  /** keepStreak = streak mercy: the day still counts even if the redo never lands. */
+  reject: (instanceId: string, reason: string, keepStreak?: boolean) => void;
   /** Parent escape hatch: put an instance back to 'todo' (undo a manual approve). */
   reopen: (instanceId: string) => void;
   override: (kidId: string, mode: 'lock' | 'unlock' | null) => void;
@@ -207,7 +231,14 @@ export interface Store {
   removeListItem: (id: string) => void;
   /** Parent ledger entry: negative cents = payout, any sign for 'adjust'. */
   recordMoney: (kidId: string, cents: number, kind: 'payout' | 'adjust', note?: string) => void;
-  saveChore: (chore: Omit<Chore, 'id'> & { id?: string }) => void;
+  saveChore: (chore: Omit<Chore, 'id'> & { id?: string }, refMedia?: ProofMedia[]) => void;
+  /** Create/update a chore group ("chore list") — ordered kid rotation, advances weekly. choreIds = the full member list. */
+  saveGroup: (group: Omit<ChoreGroup, 'id' | 'rotationIndex'> & { id?: string }, choreIds: string[]) => void;
+  deleteGroup: (groupId: string) => void;
+  /** Hand the group to the next kid right now (manual swap). */
+  advanceGroup: (groupId: string) => void;
+  /** Move a kid's unfinished chores for today onto a sibling (away hand-off). */
+  handoffToday: (fromKidId: string, toKidId: string) => void;
   saveQuest: (quest: QuestDraft) => void;
   claimQuest: (questId: string) => void;
   submitQuest: (questId: string, media: ProofMedia, note?: string) => void;
@@ -236,6 +267,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
   const [currentKidId, setCurrentKidId] = useState('k3');
   const [kids, setKids] = useState(KIDS);
   const [chores, setChores] = useState(CHORES);
+  const [groups, setGroups] = useState<ChoreGroup[]>([]);
   const [instances, setInstances] = useState(INSTANCES);
   const [quests, setQuests] = useState(QUESTS);
   const [rewards, setRewards] = useState(REWARDS);
@@ -274,7 +306,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
     };
 
     return {
-      role, setRole, currentKidId, setCurrentKidId, kids, chores, instances, quests, devices, settings, summons,
+      role, setRole, currentKidId, setCurrentKidId, kids, chores, groups, instances, quests, devices, settings, summons,
       criticalTasks, criticalInstances, unlockRequests,
       listItems, moneyLedger, nightEvents: [],
       parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
@@ -284,7 +316,8 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       submit: (id, proof, note) =>
         setInstances((cur) => {
           const auto = settings.autoApprove && cur.find((i) => i.id === id)!.attempt === 1;
-          const next = cur.map((i) => (i.id === id ? { ...i, status: auto ? 'approved' : 'submitted', photoUrl: proof.photo?.previewUrl, videoUrl: proof.video?.previewUrl, note, submittedAt: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) } as ChoreInstance : i));
+          const urls = proof.photos.map((p) => p.previewUrl);
+          const next = cur.map((i) => (i.id === id ? { ...i, status: auto ? 'approved' : 'submitted', photoUrl: urls[0], photoUrls: urls, videoUrl: proof.video?.previewUrl, note, submittedAt: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) } as ChoreInstance : i));
           const kidId = cur.find((i) => i.id === id)!.kidId;
           if (auto) sync(kidId, next);
           return next;
@@ -295,9 +328,9 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
           sync(cur.find((i) => i.id === id)!.kidId, next);
           return next;
         }),
-      reject: (id, reason) =>
+      reject: (id, reason, keepStreak) =>
         setInstances((cur) => {
-          const next = cur.map((i) => (i.id === id ? { ...i, status: 'rejected' as const, rejectionReason: reason, attempt: i.attempt + 1 } : i));
+          const next = cur.map((i) => (i.id === id ? { ...i, status: 'rejected' as const, rejectionReason: reason, attempt: i.attempt + 1, streakExempt: !!keepStreak } : i));
           sync(cur.find((i) => i.id === id)!.kidId, next);
           return next;
         }),
@@ -362,8 +395,27 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
           sync(kidId, instances, next);
           return next;
         }),
-      saveChore: (chore) =>
-        setChores((cur) => (chore.id ? cur.map((c) => (c.id === chore.id ? { ...c, ...chore, id: c.id } : c)) : [...cur, { ...chore, id: `c${Date.now()}` }])),
+      saveChore: (chore, refMedia) => {
+        const refUrls = [...(chore.refUrls ?? []), ...(refMedia ?? []).map((m) => m.previewUrl)].slice(0, 5);
+        setChores((cur) => (chore.id ? cur.map((c) => (c.id === chore.id ? { ...c, ...chore, refUrls, id: c.id } : c)) : [...cur, { ...chore, refUrls, id: `c${Date.now()}` }]));
+      },
+      saveGroup: (g, choreIds) => {
+        const id = g.id ?? `g${Date.now()}`;
+        setGroups((cur) => (g.id ? cur.map((x) => (x.id === g.id ? { ...x, ...g, id: x.id } : x)) : [...cur, { ...g, id, rotationIndex: 0 }]));
+        setChores((cur) => cur.map((c) => (
+          choreIds.includes(c.id) ? { ...c, groupId: id } : c.groupId === id ? { ...c, groupId: undefined } : c
+        )));
+      },
+      deleteGroup: (id) => {
+        setGroups((cur) => cur.filter((g) => g.id !== id));
+        setChores((cur) => cur.map((c) => (c.groupId === id ? { ...c, groupId: undefined } : c)));
+      },
+      advanceGroup: (id) => setGroups((cur) => cur.map((g) => (g.id === id ? { ...g, rotationIndex: g.rotationIndex + 1 } : g))),
+      handoffToday: (from, to) =>
+        setInstances((cur) => cur.map((i) => (
+          i.kidId === from && i.status !== 'approved' && !cur.some((x) => x.choreId === i.choreId && x.kidId === to)
+            ? { ...i, kidId: to } : i
+        ))),
       saveQuest: (q) =>
         setQuests((cur) => (q.id
           ? cur.map((x) => (x.id === q.id ? { ...x, title: q.title, note: q.note, points: q.points, kidId: q.kidId, promptUrls: [...x.promptUrls, ...q.promptMedia.map((m) => m.previewUrl)] } : x))
@@ -382,7 +434,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       addDevice: (dev) => setDevices((cur) => [...cur, { ...dev, id: `d${Date.now()}`, blocked: dev.kidId ? kidLockState(dev.kidId) === 'locked' : !kids.every((k) => kidLockState(k.id) === 'unlocked') }]),
       updateDevice: (id, patch) => setDevices((cur) => cur.map((dv) => (dv.id === id ? { ...dv, ...patch } : dv))),
     };
-  }, [role, currentKidId, kids, chores, instances, quests, rewards, rewardClaims, devices, settings, summons, criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger]);
+  }, [role, currentKidId, kids, chores, groups, instances, quests, rewards, rewardClaims, devices, settings, summons, criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
