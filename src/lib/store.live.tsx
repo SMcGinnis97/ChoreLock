@@ -222,7 +222,9 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
   useEffect(() => {
     if (role !== 'kid' || !Capacitor.isNativePlatform() || loading) return;
     const [h, m] = settings.resetTime.split(':').map(Number);
-    void ScreenTime.scheduleDailyReset({ hour: h, minute: m }).catch(() => {});
+    // Log failures — a silently-rejected registration here is exactly how the
+    // 1-minute-window bug hid for weeks (DeviceActivity requires >= 15 min).
+    void ScreenTime.scheduleDailyReset({ hour: h, minute: m }).catch((e) => console.warn('[ScreenTime] scheduleDailyReset failed', e));
   }, [role, loading, settings.resetTime]);
 
   // Shield-button taps ("Ask for 15 minutes" / "I'm doing it now") and night-watch

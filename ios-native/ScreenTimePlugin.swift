@@ -138,8 +138,12 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults.set(hour, forKey: "resetHour"); defaults.set(minute, forKey: "resetMinute")
         let center = DeviceActivityCenter()
         center.stopMonitoring([.dailyReset])
-        // A one-minute window starting at reset time; intervalDidStart fires -> extension re-applies shield.
-        let end = DateComponents(hour: (minute >= 59) ? (hour + 1) % 24 : hour, minute: (minute + 1) % 60)
+        // A 30-minute window starting at reset time; intervalDidStart fires -> extension
+        // re-applies shield. DeviceActivity rejects intervals shorter than 15 minutes —
+        // the original 1-minute window threw on startMonitoring, so the offline midnight
+        // re-shield was never actually registered on any device.
+        let endTotal = (hour * 60 + minute + 30) % 1440
+        let end = DateComponents(hour: endTotal / 60, minute: endTotal % 60)
         let schedule = DeviceActivitySchedule(intervalStart: DateComponents(hour: hour, minute: minute), intervalEnd: end, repeats: true)
         do {
             try center.startMonitoring(.dailyReset, during: schedule)
