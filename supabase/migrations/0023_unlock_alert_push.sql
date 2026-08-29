@@ -13,7 +13,7 @@ begin
   if new.override is distinct from old.override or new.override_date is distinct from old.override_date
      or new.absent_until is distinct from old.absent_until then
     if new.override = 'unlock' and old.override is distinct from 'unlock' then
-      perform private.notify_kids(array[new.id], 'quest', '🔓 You’re unlocked',
+      perform private.notify_kids(array[new.id], 'lockstate', '🔓 You’re unlocked',
         'A parent switched your Wi-Fi on. Enjoy!');
     else
       perform private.notify_kids(array[new.id], 'state');
