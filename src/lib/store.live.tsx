@@ -552,5 +552,35 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
     if (sig !== lastApplied.current) { lastApplied.current = sig; void applyLockState(st, content); }
   }, [role, identity.kidId, loading, store, kids, chores, instances, criticalTasks, criticalInstances, unlockRequests]);
 
+  // Native safety net for critical-task escalation: hand the upcoming lock moments
+  // to DeviceActivity so iOS engages the shield on time even when no push arrives
+  // (silent pushes throttle; a force-quit app never background-wakes). The set is
+  // replaced on every change; completed/canceled rounds drop out on reconcile.
+  const lastCriticalLocks = useRef<string | null>(null);
+  useEffect(() => {
+    if (role !== 'kid' || !identity.kidId || loading || !Capacitor.isNativePlatform()) return;
+    const me = kids.find((k) => k.id === identity.kidId);
+    const away = !!me?.absentUntil;
+    const locks = criticalInstances
+      .filter((ci) => ci.status === 'open' || ci.status === 'scheduled')
+      .flatMap((ci) => {
+        const t = criticalTasks.find((x) => x.id === ci.taskId);
+        if (!t) return [];
+        const due = new Date(ci.dueAt).getTime();
+        if (ci.kidId === identity.kidId)
+          return [{ at: due + t.lockAfterMin * 60_000, title: `${t.emoji} ${ci.title}`, subtitle: 'Nothing unlocks until this one’s done.' }];
+        // Someone else's round: my device locks at the everyone-locks mark (away kids exempt).
+        return away ? [] : [{ at: due + t.lockAllAfterMin * 60_000, title: `${t.emoji} ${ci.title}`, subtitle: 'Everyone is locked until this is done.' }];
+      })
+      .filter((l) => l.at > Date.now() + 5_000)
+      .sort((a, b) => a.at - b.at)
+      .slice(0, 8) // DeviceActivity caps concurrent monitors; 8 + reset/night/wake stays well under
+      .map((l) => ({ at: Math.floor(l.at / 1000), title: l.title, subtitle: l.subtitle }));
+    const sig = JSON.stringify(locks);
+    if (sig === lastCriticalLocks.current) return;
+    lastCriticalLocks.current = sig;
+    ScreenTime.scheduleCriticalLocks({ locks }).catch(() => {}); // older native build without the method
+  }, [role, identity.kidId, loading, criticalInstances, criticalTasks, kids]);
+
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

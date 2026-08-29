@@ -35,6 +35,14 @@ export interface ScreenTimePlugin {
   getStatus(): Promise<{ authorized: boolean; shielded: boolean }>;
   /** Re-apply the shield locally every day at this time via DeviceActivityMonitor (no network needed). */
   scheduleDailyReset(opts: { hour: number; minute: number }): Promise<void>;
+  /**
+   * Register the upcoming critical-task lock moments (epoch seconds) with
+   * DeviceActivity so iOS engages the shield at those times even if the app is
+   * asleep, force-quit, or offline — no push required. Each call replaces the
+   * whole set; pass an empty list to clear. Unlocking still reconciles via the
+   * app (opening ChoreKey is never shielded), so a stale lock errs locked-side.
+   */
+  scheduleCriticalLocks(opts: { locks: { at: number; title: string; subtitle: string }[] }): Promise<{ scheduled: number }>;
   /** Shield-button taps queued by the action extension, cleared on read. */
   drainShieldRequests(): Promise<{ requests: { kind: 'fifteen' | 'inprogress'; at: number }[] }>;
   /** (Re)arm the night-watch DeviceActivity schedules, or stop them with enabled=false. */
@@ -54,6 +62,7 @@ const webStub: ScreenTimePlugin = {
   async setShield(opts) { console.info('[ScreenTime/web] setShield', opts); },
   async getStatus() { return { authorized: false, shielded: false }; },
   async scheduleDailyReset(opts) { console.info('[ScreenTime/web] scheduleDailyReset', opts); },
+  async scheduleCriticalLocks(opts) { console.info('[ScreenTime/web] scheduleCriticalLocks', opts); return { scheduled: 0 }; },
   async drainShieldRequests() { return { requests: [] }; },
   async configureNightWatch(opts) { console.info('[ScreenTime/web] configureNightWatch', opts); },
   async drainNightEvents() { return { events: [] }; },

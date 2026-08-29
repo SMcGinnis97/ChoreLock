@@ -32,11 +32,25 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         defaults?.set(events, forKey: "nightEvents")
     }
 
+    // Fires for the daily reset AND for one-shot critical-task lock moments
+    // (chorelock.criticalLock.N, registered by scheduleCriticalLocks). Either way
+    // the shield engages from stored state with zero network — the app reconciles
+    // (and unlocks if the round was completed meanwhile) on its next wake.
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        guard activity == DeviceActivityName("chorelock.dailyReset") else { return }
+        let isReset = activity == DeviceActivityName("chorelock.dailyReset")
+        let isCriticalLock = activity.rawValue.hasPrefix("chorelock.criticalLock.")
+        guard isReset || isCriticalLock else { return }
         guard let data = defaults?.data(forKey: "blockedSelection"),
               let sel = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else { return }
+        if isCriticalLock {
+            let payloads = defaults?.dictionary(forKey: "criticalLockPayloads") as? [String: [String: String]]
+            let p = payloads?[activity.rawValue]
+            defaults?.set("critical", forKey: "shieldState")
+            defaults?.set(p?["title"] ?? "🚨 Critical task", forKey: "shieldTitle")
+            defaults?.set(p?["subtitle"] ?? "Nothing unlocks until it’s done.", forKey: "shieldSubtitle")
+            defaults?.set(false, forKey: "shieldAllowRequest")
+        }
         store.shield.applications = sel.applicationTokens.isEmpty ? nil : sel.applicationTokens
         store.shield.applicationCategories = sel.categoryTokens.isEmpty ? nil : .specific(sel.categoryTokens)
         store.shield.webDomains = sel.webDomainTokens.isEmpty ? nil : sel.webDomainTokens

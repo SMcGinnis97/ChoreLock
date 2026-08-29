@@ -20,7 +20,9 @@ Feature ideas accepted but not yet scheduled into a build round.
    HealthKit summaries can be synced to the parent dashboard. Only populated when the kid
    actually uses iPhone Sleep schedule or wears a Watch; iPhone-only gives time-in-bed at best.
 
-## Offline-reliable critical-task lock (native shield scheduling) — NEXT BUILD ITEM
+## Offline-reliable critical-task lock (native shield scheduling) — BUILT 2026-08-28
+(scheduleCriticalLocks in ScreenTimePlugin + chorelock.criticalLock.N handling in the
+monitor extension + store.live effect. Kept for design rationale.)
 
 Observed 2026-08-28: a critical follow-up ("bring the dogs back in") passed its lock
 threshold, the server flipped kid_lock_state to locked and sent both pushes, but the

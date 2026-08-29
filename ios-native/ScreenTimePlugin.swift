@@ -28,6 +28,7 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setShield", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "scheduleDailyReset", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "scheduleCriticalLocks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "drainShieldRequests", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configureNightWatch", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "drainNightEvents", returnType: CAPPluginReturnPromise),
@@ -146,6 +147,46 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         } catch {
             call.reject("startMonitoring failed: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: Critical-task lock schedule (offline-reliable escalation)
+    // The app registers each upcoming lock moment (their-lock and everyone-locks
+    // times of open/booked critical rounds) as a one-shot DeviceActivity schedule.
+    // iOS launches the monitor extension at that moment — no push, no network, no
+    // app wake needed — and the extension shields from app-group state. Every call
+    // replaces the full set (stale rounds drop out when the app reconciles).
+    @objc func scheduleCriticalLocks(_ call: CAPPluginCall) {
+        let locks = call.getArray("locks") ?? []
+        let center = DeviceActivityCenter()
+        let old = center.activities.filter { $0.rawValue.hasPrefix("chorelock.criticalLock.") }
+        if !old.isEmpty { center.stopMonitoring(old) }
+        var payloads: [String: [String: String]] = [:]
+        var started = 0
+        let cal = Calendar.current
+        let comps: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+        for (n, raw) in locks.enumerated() {
+            guard let item = raw as? [String: Any], let at = item["at"] as? Double else { continue }
+            let start = Date(timeIntervalSince1970: at)
+            guard start > Date().addingTimeInterval(5) else { continue } // past moments: the app is awake and shields itself
+            let name = DeviceActivityName("chorelock.criticalLock.\(n)")
+            // One-shot window; DeviceActivity requires >= 15 minutes, we give 30.
+            let schedule = DeviceActivitySchedule(
+                intervalStart: cal.dateComponents(comps, from: start),
+                intervalEnd: cal.dateComponents(comps, from: start.addingTimeInterval(30 * 60)),
+                repeats: false)
+            do {
+                try center.startMonitoring(name, during: schedule)
+                payloads[name.rawValue] = [
+                    "title": (item["title"] as? String) ?? "🚨 Critical task",
+                    "subtitle": (item["subtitle"] as? String) ?? "Nothing unlocks until it’s done.",
+                ]
+                started += 1
+            } catch {
+                // Keep registering the rest; the count tells the app how many stuck.
+            }
+        }
+        defaults.set(payloads, forKey: "criticalLockPayloads")
+        call.resolve(["scheduled": started])
     }
 
     // MARK: Night watch (3am flags + wake timecard)
