@@ -20,6 +20,29 @@ Feature ideas accepted but not yet scheduled into a build round.
    HealthKit summaries can be synced to the parent dashboard. Only populated when the kid
    actually uses iPhone Sleep schedule or wears a Watch; iPhone-only gives time-in-bed at best.
 
+## Offline-reliable critical-task lock (native shield scheduling) — NEXT BUILD ITEM
+
+Observed 2026-08-28: a critical follow-up ("bring the dogs back in") passed its lock
+threshold, the server flipped kid_lock_state to locked and sent both pushes, but the
+iPad kept streaming — the ChoreKey app never woke, so nothing re-applied the shield.
+Enforcement today depends on the JS app running (silent pushes are throttled; a
+force-quit app gets no background wakes at all).
+
+Fix: schedule the lock moment natively with DeviceActivity, the same mechanism the
+ChoreLockMonitor extension already uses for the daily reset and night watch:
+
+- When a critical round fires (app is usually awake from the 'critical' alert push —
+  and also on every app open/refresh as a catch-up), write the round's computed lock
+  time (due_at + lock_after_min) to the app group and register a DeviceActivity
+  schedule for that moment.
+- iOS launches the monitor extension at that time — no push, no network, no app
+  open — and the extension applies the ManagedSettings shield from app-group state.
+- Completion/cancel path stays push-based (shield lifts on next app wake or silent
+  push); erring on the locked side is acceptable. Cancel the schedule when the app
+  observes the round done.
+- Also register the lock-all time (due_at + lock_all_after_min) on every kid device,
+  gated by the app-group "am I exempt (away)" flag.
+
 ## Other
 
 - Router local agent for non-Apple devices — design in LOCAL_AGENT.md, blocked on the
