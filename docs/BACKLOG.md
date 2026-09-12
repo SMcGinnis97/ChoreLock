@@ -51,3 +51,14 @@ ChoreLockMonitor extension already uses for the daily reset and night watch:
   ACL enforcement test (see memory/chorelock-router-integration).
 - Family Controls distribution request: confirm the filed form referenced bundle
   app.chorelock (user to check Apple's confirmation email).
+
+## App Store Connect listing — TODO (noted 2026-09-11)
+
+- Critical Alerts entitlement request 9K8N27DQAA was **rejected** 2026-09-11 ("not designed
+  for the use you've identified" — reserved for medical/health, home/security, public safety).
+  Before any re-request, finish the ASC app record: screenshots, description, keywords,
+  privacy details, support URL, TestFlight Test Information. If we re-apply, the summons
+  feature would have to be framed as a personal-safety use (e.g. "come home now" /
+  emergency family recall) — the plain "chore reminder" framing will not qualify.
+- Until then summons/critical pushes play at normal notification volume and respect the
+  silent switch; APNS_CRITICAL stays unset.
