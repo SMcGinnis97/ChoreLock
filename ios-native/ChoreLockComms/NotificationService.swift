@@ -65,6 +65,9 @@ enum PushLock {
         guard let lock = userInfo["lock"] as? [String: Any],
               let state = lock["state"] as? String,
               let defaults = UserDefaults(suiteName: "group.app.chorelock") else { return }
+        // Only when this extension actually holds the Family Controls entitlement (Apple
+        // approves distribution per bundle id); otherwise leave it to the app delegate.
+        guard AuthorizationCenter.shared.authorizationStatus == .approved else { return }
         if let s = lock["shield"] as? [String: Any] {
             if let v = s["state"] as? String { defaults.set(v, forKey: "shieldState") }
             if let v = s["title"] as? String { defaults.set(v, forKey: "shieldTitle") }
