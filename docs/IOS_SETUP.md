@@ -27,6 +27,7 @@ App IDs, all with **App Groups** (`group.app.chorelock`) + **Family Controls (De
 - `app.chorelock.ChoreLockShield`
 - `app.chorelock.ChoreLockShieldAction`
 - `app.chorelock.ChoreLockMonitor`
+- `app.chorelock.ChoreLockComms` — needed since the push-driven shield (build #17+): the service extension writes ManagedSettings and reads the app group
 
 For the `ios-dev` workflow, register each test iPhone's UDID under **Devices** (Settings → General → About → tap serial… or via Finder/iTunes), then the build's install link works on it.
 
