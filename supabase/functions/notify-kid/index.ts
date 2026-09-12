@@ -109,16 +109,18 @@ Deno.serve(async (req) => {
     : kind === 'money' ? { title: `💵 ${chore}`, body: reason ?? 'Money added to your stash.' }
     : kind === 'quest' ? { title: chore ?? 'Side quest', body: reason ?? 'Check ChoreKey.' } // generic title/body pass-through
     : kind === 'lockstate' ? { title: chore ?? 'Lock state changed', body: reason ?? 'Check ChoreKey.' } // manual lock/unlock: time-sensitive so it pierces Sleep Focus
+    : kind === 'morning' ? { title: chore ?? '☀️ Morning', body: reason ?? 'Screens are back.' } // bedtime window closed: visible (reliable) but no sound
     : { title: 'Sent back', body: `${chore}: ${reason ?? 'take another look'}` };
-  const sound = (kind === 'summon' || kind === 'critical') && Deno.env.get('APNS_CRITICAL') === '1'
-    ? { critical: 1, name: 'default', volume: 1.0 } // needs the Critical Alerts entitlement
-    : 'default';
+  const sound = kind === 'morning' ? undefined
+    : (kind === 'summon' || kind === 'critical') && Deno.env.get('APNS_CRITICAL') === '1'
+      ? { critical: 1, name: 'default', volume: 1.0 } // needs the Critical Alerts entitlement
+      : 'default';
   const payloadFor = (kidId: string) => silent
     ? { aps: { 'content-available': 1 }, kind, lock: lockFor[kidId] }
     : {
         aps: {
           // mutable-content on every alert so ChoreLockComms runs and applies `lock`.
-          alert, sound, 'content-available': 1, 'mutable-content': 1,
+          alert, ...(sound && { sound }), 'content-available': 1, 'mutable-content': 1,
           ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1 }),
           ...(kind === 'critical' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1 }),
           ...(kind === 'lockstate' && { 'interruption-level': 'time-sensitive' }),

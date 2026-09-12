@@ -67,6 +67,12 @@ enum PushLock {
               let defaults = UserDefaults(suiteName: "group.app.chorelock") else { return }
         // Only when this extension actually holds the Family Controls entitlement (Apple
         // approves distribution per bundle id); otherwise leave it to the app delegate.
+        // authorizationStatus settles asynchronously after a cold start — and an
+        // extension is always a cold start — so give it up to 1.5s before deciding.
+        var waited = 0
+        while AuthorizationCenter.shared.authorizationStatus == .notDetermined && waited < 15 {
+            usleep(100_000); waited += 1
+        }
         guard AuthorizationCenter.shared.authorizationStatus == .approved else { return }
         if let s = lock["shield"] as? [String: Any] {
             if let v = s["state"] as? String { defaults.set(v, forKey: "shieldState") }

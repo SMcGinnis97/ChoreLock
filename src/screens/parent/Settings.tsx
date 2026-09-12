@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { balanceCents, fmtClock, fmtMoney, useStore } from '../../lib/store';
 import { Avatar, Icon, Switch } from '../../components/ui';
-import type { Device, Kid } from '../../lib/types';
+import type { BedtimeWindow, Device, Kid } from '../../lib/types';
 import { fmtTime } from './Dashboard';
 
 export default function Settings() {
@@ -158,49 +158,9 @@ export default function Settings() {
 
       <div className="section-label">🛏️ Bedtime</div>
       <div className="group">
-        {s.kids.map((k) => {
-          const on = !!k.bedStart && !!k.bedEnd;
-          const weekend = !!k.bedStartWeekend && !!k.bedEndWeekend;
-          const save = (patch: Partial<{ start: string; end: string; startWeekend?: string; endWeekend?: string }>) =>
-            s.setBedtime(k.id, { start: k.bedStart!, end: k.bedEnd!, startWeekend: k.bedStartWeekend, endWeekend: k.bedEndWeekend, ...patch });
-          return (
-            <div key={k.id} className="group-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-              <div className="row">
-                <Avatar kid={k} size="sm" />
-                <div className="spacer">
-                  <div className="title">{k.name}</div>
-                  <div className="sub">{on ? `${fmtClock(k.bedStart!)} – ${fmtClock(k.bedEnd!)}${weekend ? ` · Fri & Sat ${fmtClock(k.bedStartWeekend!)} – ${fmtClock(k.bedEndWeekend!)}` : ''}` : 'No bedtime lock'}</div>
-                </div>
-                <Switch on={on} onChange={(v) => s.setBedtime(k.id, v ? { start: k.age >= 13 ? '22:00' : '21:00', end: '06:30' } : null)} />
-              </div>
-              {on && (
-                <>
-                  <div className="row" style={{ gap: 8 }}>
-                    <span className="sub" style={{ flexShrink: 0, width: 92 }}>School nights</span>
-                    <input className="field" type="time" style={{ padding: 8 }} value={k.bedStart} onChange={(e) => e.target.value && save({ start: e.target.value })} />
-                    <span className="sub">to</span>
-                    <input className="field" type="time" style={{ padding: 8 }} value={k.bedEnd} onChange={(e) => e.target.value && save({ end: e.target.value })} />
-                  </div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <span className="sub" style={{ flexShrink: 0, width: 92 }}>Fri & Sat</span>
-                    {weekend
-                      ? (
-                        <>
-                          <input className="field" type="time" style={{ padding: 8 }} value={k.bedStartWeekend} onChange={(e) => e.target.value && save({ startWeekend: e.target.value })} />
-                          <span className="sub">to</span>
-                          <input className="field" type="time" style={{ padding: 8 }} value={k.bedEndWeekend} onChange={(e) => e.target.value && save({ endWeekend: e.target.value })} />
-                          <button className="btn btn--text" style={{ minHeight: 0 }} onClick={() => save({ startWeekend: undefined, endWeekend: undefined })}>Same</button>
-                        </>
-                      )
-                      : <button className="btn btn--text" style={{ minHeight: 0, padding: 0 }} onClick={() => save({ startWeekend: k.bedStart === '22:00' ? '23:00' : '22:00', endWeekend: '07:30' })}>Same as school nights · make different</button>}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
+        {s.kids.map((k) => <BedtimeRow key={k.id} kid={k} />)}
       </div>
-      <p className="hint" style={{ textAlign: 'left' }}>Blocks the kid’s chosen apps for the whole window, chores or not — even offline. Kids can still tap “Ask for 15 minutes” on the lock screen, and you can tap “stay up tonight” on the Dashboard for a one-off. Chores still count in the morning.</p>
+      <p className="hint" style={{ textAlign: 'left' }}>Blocks the kid’s chosen apps for the whole window, chores or not — even offline. Kids can still tap “Ask for 15 minutes” on the lock screen, and you can tap “stay up tonight” on the Dashboard for a one-off. Chores still count in the morning. Windows need to be at least 15 minutes.</p>
 
       <div className="section-label">🌙 Night watch</div>
       <div className="group">
@@ -296,6 +256,80 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+const minsOf = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+/** Window length in minutes, midnight-crossing aware. */
+const spanOf = (start: string, end: string) => (minsOf(end) - minsOf(start) + 1440) % 1440;
+
+/**
+ * One kid's bedtime editor. Edits are held locally and saved 700ms after the last
+ * change (or on blur): the iOS time picker fires onChange on every wheel tick, and
+ * each save is a server round-trip that pushes the kid device. Windows shorter than
+ * 15 minutes are refused — DeviceActivity won't schedule them, so the device could
+ * never enforce them.
+ */
+function BedtimeRow({ kid: k }: { kid: Kid }) {
+  const s = useStore();
+  const on = !!k.bedStart && !!k.bedEnd;
+  const weekend = !!k.bedStartWeekend && !!k.bedEndWeekend;
+  const [draft, setDraft] = useState<BedtimeWindow | null>(null);
+  const timer = useRef<number | null>(null);
+  const cur: BedtimeWindow = draft ?? { start: k.bedStart ?? '21:00', end: k.bedEnd ?? '06:30', startWeekend: k.bedStartWeekend, endWeekend: k.bedEndWeekend };
+  const tooShort = spanOf(cur.start, cur.end) < 15 || (!!cur.startWeekend && !!cur.endWeekend && spanOf(cur.startWeekend, cur.endWeekend) < 15);
+
+  const commit = (w: BedtimeWindow) => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = null;
+    const pair = !!w.startWeekend && !!w.endWeekend;
+    if (spanOf(w.start, w.end) < 15 || (pair && spanOf(w.startWeekend!, w.endWeekend!) < 15)) return; // keep the draft, show the warning
+    s.setBedtime(k.id, { start: w.start, end: w.end, startWeekend: pair ? w.startWeekend : undefined, endWeekend: pair ? w.endWeekend : undefined });
+    setDraft(null);
+  };
+  const edit = (patch: Partial<BedtimeWindow>) => {
+    const next = { ...cur, ...patch };
+    setDraft(next);
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => commit(next), 700);
+  };
+  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+
+  return (
+    <div className="group-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+      <div className="row">
+        <Avatar kid={k} size="sm" />
+        <div className="spacer">
+          <div className="title">{k.name}</div>
+          <div className="sub">{on ? `${fmtClock(k.bedStart!)} – ${fmtClock(k.bedEnd!)}${weekend ? ` · Fri & Sat ${fmtClock(k.bedStartWeekend!)} – ${fmtClock(k.bedEndWeekend!)}` : ''}` : 'No bedtime lock'}</div>
+        </div>
+        <Switch on={on} onChange={(v) => { setDraft(null); s.setBedtime(k.id, v ? { start: k.age >= 13 ? '22:00' : '21:00', end: '06:30' } : null); }} />
+      </div>
+      {on && (
+        <>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="sub" style={{ flexShrink: 0, width: 92 }}>School nights</span>
+            <input className="field" type="time" style={{ padding: 8 }} value={cur.start} onChange={(e) => e.target.value && edit({ start: e.target.value })} onBlur={() => draft && commit(draft)} />
+            <span className="sub">to</span>
+            <input className="field" type="time" style={{ padding: 8 }} value={cur.end} onChange={(e) => e.target.value && edit({ end: e.target.value })} onBlur={() => draft && commit(draft)} />
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="sub" style={{ flexShrink: 0, width: 92 }}>Fri & Sat</span>
+            {cur.startWeekend && cur.endWeekend
+              ? (
+                <>
+                  <input className="field" type="time" style={{ padding: 8 }} value={cur.startWeekend} onChange={(e) => e.target.value && edit({ startWeekend: e.target.value })} onBlur={() => draft && commit(draft)} />
+                  <span className="sub">to</span>
+                  <input className="field" type="time" style={{ padding: 8 }} value={cur.endWeekend} onChange={(e) => e.target.value && edit({ endWeekend: e.target.value })} onBlur={() => draft && commit(draft)} />
+                  <button className="btn btn--text" style={{ minHeight: 0 }} onClick={() => commit({ ...cur, startWeekend: undefined, endWeekend: undefined })}>Same</button>
+                </>
+              )
+              : <button className="btn btn--text" style={{ minHeight: 0, padding: 0 }} onClick={() => commit({ ...cur, startWeekend: cur.start === '22:00' ? '23:00' : '22:00', endWeekend: '07:30' })}>Same as school nights · make different</button>}
+          </div>
+          {tooShort && <p className="chore-sub chore-sub--reject" style={{ margin: 0 }}>Bedtime has to be at least 15 minutes long — the device can’t schedule anything shorter. Not saved yet.</p>}
+        </>
       )}
     </div>
   );
