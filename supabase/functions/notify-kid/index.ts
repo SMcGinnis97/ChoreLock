@@ -84,7 +84,19 @@ Deno.serve(async (req) => {
   if (!Array.isArray(kid_ids) || kid_ids.length === 0) return Response.json({ sent: 0 });
 
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const { data: devices } = await sb.from('devices').select('id, push_token').in('kid_id', kid_ids).eq('platform', 'ios').not('push_token', 'is', null);
+  // Every push carries the kid's current lock state + shield copy (kid_shield) so the
+  // device applies the shield natively on arrival — the notification service extension
+  // for visible pushes, the app delegate for silent ones — instead of waiting for the
+  // web view to wake, which it often doesn't on a background push.
+  const [{ data: devices }, locks] = await Promise.all([
+    sb.from('devices').select('id, kid_id, push_token').in('kid_id', kid_ids).eq('platform', 'ios').not('push_token', 'is', null),
+    Promise.all(kid_ids.map(async (id: string) => {
+      const { data, error } = await sb.rpc('kid_shield', { p_kid: id });
+      if (error) console.warn('[notify-kid] kid_shield failed', id, error.message);
+      return [id, data] as const;
+    })),
+  ]);
+  const lockFor: Record<string, unknown> = Object.fromEntries(locks);
 
   const silent = kind === 'reset' || kind === 'state';
   const alert =
@@ -101,21 +113,23 @@ Deno.serve(async (req) => {
   const sound = (kind === 'summon' || kind === 'critical') && Deno.env.get('APNS_CRITICAL') === '1'
     ? { critical: 1, name: 'default', volume: 1.0 } // needs the Critical Alerts entitlement
     : 'default';
-  const payload = silent
-    ? { aps: { 'content-available': 1 }, kind }
+  const payloadFor = (kidId: string) => silent
+    ? { aps: { 'content-available': 1 }, kind, lock: lockFor[kidId] }
     : {
         aps: {
-          alert, sound, 'content-available': 1,
-          ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1, 'mutable-content': 1 }),
+          // mutable-content on every alert so ChoreLockComms runs and applies `lock`.
+          alert, sound, 'content-available': 1, 'mutable-content': 1,
+          ...(kind === 'summon' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1 }),
           ...(kind === 'critical' && { 'interruption-level': 'time-sensitive', 'relevance-score': 1 }),
           ...(kind === 'lockstate' && { 'interruption-level': 'time-sensitive' }),
         },
         kind,
+        lock: lockFor[kidId],
         ...(kind === 'summon' && sender && { senderName: sender }),
       };
 
   const results = await Promise.all((devices ?? []).map(async (d) => {
-    const r = await send(d.push_token!, payload, silent);
+    const r = await send(d.push_token!, payloadFor(d.kid_id), silent);
     if (isTokenError(r)) await sb.from('devices').update({ push_token: null }).eq('id', d.id);
     return r.status;
   }));

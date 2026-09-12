@@ -111,13 +111,13 @@ EXTENSIONS = [
     frameworks: %w[ManagedSettings ManagedSettingsUI FamilyControls] },
   { name: 'ChoreLockShieldAction', point: 'com.apple.ManagedSettings.shield-action-service', principal: 'ShieldActionExtension',
     src: 'ChoreLockShield/ShieldActionExtension.swift', ent: 'ChoreLockShield/ChoreLockShield.entitlements',
-    frameworks: %w[ManagedSettings FamilyControls] },
+    frameworks: %w[ManagedSettings FamilyControls UserNotifications] },
   { name: 'ChoreLockMonitor',      point: 'com.apple.deviceactivity.monitor-extension', principal: 'DeviceActivityMonitorExtension',
     src: 'ChoreLockMonitor/DeviceActivityMonitorExtension.swift', ent: 'ChoreLockMonitor/ChoreLockMonitor.entitlements',
     frameworks: %w[DeviceActivity ManagedSettings FamilyControls] },
   { name: 'ChoreLockComms',        point: 'com.apple.usernotifications.service', principal: 'NotificationService',
     src: 'ChoreLockComms/NotificationService.swift', ent: 'ChoreLockComms/ChoreLockComms.entitlements',
-    frameworks: %w[UserNotifications Intents] },
+    frameworks: %w[UserNotifications Intents ManagedSettings FamilyControls] },
 ]
 
 embed = app.build_phases.find { |p| p.is_a?(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase) && p.name == 'Embed Foundation Extensions' }

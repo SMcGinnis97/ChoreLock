@@ -12,9 +12,21 @@
 
 import Foundation
 import ManagedSettings
+import UserNotifications
 
 class ShieldActionExtension: ShieldActionDelegate {
     private let defaults = UserDefaults(suiteName: "group.app.chorelock")
+
+    /// iOS won't let a shield button launch another app — "See my chores" can only close
+    /// the blocked one, which dropped the kid on the home screen with nothing to do. So we
+    /// also post a local notification they can tap to land straight in ChoreKey.
+    private func nudgeToOpen() {
+        let content = UNMutableNotificationContent()
+        content.title = "Your chores are waiting 🔑"
+        content.body = "Tap to open ChoreKey and snap your proof."
+        content.userInfo = ["kind": "open"]
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "chorekey-open", content: content, trigger: nil))
+    }
 
     override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
         respond(action, completionHandler)
@@ -30,6 +42,7 @@ class ShieldActionExtension: ShieldActionDelegate {
         switch action {
         case .primaryButtonPressed:
             defaults?.set(true, forKey: "openRequested")
+            if (defaults?.string(forKey: "shieldState") ?? "chores") == "chores" { nudgeToOpen() }
             done(.close)
         case .secondaryButtonPressed:
             let state = defaults?.string(forKey: "shieldState") ?? "chores"

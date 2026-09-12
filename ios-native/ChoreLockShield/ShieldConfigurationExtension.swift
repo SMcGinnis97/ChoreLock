@@ -44,39 +44,41 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         let allowRequest = defaults?.object(forKey: "shieldAllowRequest") as? Bool ?? true
 
         switch state {
+        // Backgrounds are near-opaque over a dark blur: the earlier translucent tints let
+        // the blocked app bleed through and washed the white copy out to nothing.
         case .chores:
             return ShieldConfiguration(
-                backgroundBlurStyle: .systemMaterial,
-                backgroundColor: UIColor(hex: 0xE5541E, alpha: 0.86),
+                backgroundBlurStyle: .systemThickMaterialDark,
+                backgroundColor: UIColor(hex: 0xD84A16, alpha: 0.97),
                 icon: UIImage(named: "shield-chores"),
                 title: .init(text: title, color: .white),
-                subtitle: .init(text: subtitle, color: UIColor(hex: 0xFFE6D9)),
+                subtitle: .init(text: subtitle, color: .white),
                 primaryButtonLabel: .init(text: "See my chores →", color: UIColor(hex: 0xB23A10)),
                 primaryButtonBackgroundColor: .white,
                 secondaryButtonLabel: allowRequest
-                    ? .init(text: "Ask for 15 minutes 🙏", color: UIColor(hex: 0xFFF2EC))
+                    ? .init(text: "Ask for 15 minutes 🙏", color: .white)
                     : nil
             )
 
         case .critical:
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemThickMaterialDark,
-                backgroundColor: UIColor(hex: 0xB21A11, alpha: 0.82),
+                backgroundColor: UIColor(hex: 0x9E1710, alpha: 0.97),
                 icon: UIImage(named: "shield-critical"),
                 title: .init(text: title, color: .white),
-                subtitle: .init(text: subtitle, color: UIColor(hex: 0xFFD9D4)),
+                subtitle: .init(text: subtitle, color: .white),
                 primaryButtonLabel: .init(text: "Close and go do it", color: UIColor(hex: 0x8E1610)),
                 primaryButtonBackgroundColor: .white,
-                secondaryButtonLabel: .init(text: "I'm doing it now! 💪", color: UIColor(hex: 0xFFD9D4))
+                secondaryButtonLabel: .init(text: "I'm doing it now! 💪", color: .white)
             )
 
         case .grounded:
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemThickMaterialDark,
-                backgroundColor: UIColor(hex: 0x2E3440, alpha: 0.90),
+                backgroundColor: UIColor(hex: 0x23272F, alpha: 0.97),
                 icon: UIImage(named: "shield-grounded"),
                 title: .init(text: title, color: .white),
-                subtitle: .init(text: subtitle, color: UIColor(hex: 0xC3C9D4)),
+                subtitle: .init(text: subtitle, color: UIColor(hex: 0xE3E7EF)),
                 primaryButtonLabel: .init(text: "Close app", color: .white),
                 primaryButtonBackgroundColor: UIColor(hex: 0x4A5260),
                 secondaryButtonLabel: nil // no negotiating with a grounding
@@ -84,15 +86,15 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
         case .bedtime:
             return ShieldConfiguration(
-                backgroundBlurStyle: .systemMaterialDark,
-                backgroundColor: UIColor(hex: 0x1E2350, alpha: 0.88),
+                backgroundBlurStyle: .systemThickMaterialDark,
+                backgroundColor: UIColor(hex: 0x1B2049, alpha: 0.97),
                 icon: UIImage(named: "shield-bedtime"),
                 title: .init(text: title, color: .white),
-                subtitle: .init(text: subtitle, color: UIColor(hex: 0xBFC5F0)),
-                primaryButtonLabel: .init(text: "Put it down", color: UIColor(hex: 0xEEF0FF)),
-                primaryButtonBackgroundColor: UIColor(hex: 0x3A4390),
+                subtitle: .init(text: subtitle, color: UIColor(hex: 0xE4E7FF)),
+                primaryButtonLabel: .init(text: "Put it down", color: .white),
+                primaryButtonBackgroundColor: UIColor(hex: 0x4A54B0),
                 secondaryButtonLabel: allowRequest
-                    ? .init(text: "Ask for 15 minutes 🙏", color: UIColor(hex: 0xA7AEE8))
+                    ? .init(text: "Ask for 15 minutes 🙏", color: .white)
                     : nil
             )
         }
