@@ -338,6 +338,8 @@ export interface Store {
   /** Re-fetch everything (pull-to-refresh). No-op in mock mode. */
   reload?: () => Promise<void>;
   loading?: boolean;
+  /** When the live store last finished a full load — shown on the kid screen so a stale app is visible. */
+  lastSync?: Date;
   error?: string | null;
 }
 

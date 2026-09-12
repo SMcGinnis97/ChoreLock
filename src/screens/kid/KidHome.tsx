@@ -270,6 +270,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
           {RewardShop}
         </>
       )}
+      {s.lastSync && <p className="hint" style={{ margin: 0, opacity: .6 }}>Updated {s.lastSync.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · pull down to refresh</p>}
     </div>
     </PullToRefresh>
   );

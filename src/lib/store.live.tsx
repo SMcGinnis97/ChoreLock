@@ -88,6 +88,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
   const [moneyLedger, setMoneyLedger] = useState<MoneyEntry[]>([]);
   const [nightEvents, setNightEvents] = useState<NightEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastSync, setLastSync] = useState<Date | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [currentKidId, setCurrentKidId] = useState(identity.kidId ?? '');
   const [tick, setTick] = useState(0); // minute pulse so due-time lock flips re-evaluate while open
@@ -107,7 +108,9 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         ? await sb().from('kids').select('*').in('id', kidIds)
         : await sb().from('kids').select('*').eq('family_id', identity.familyId!).order('created_at');
       if (ke) throw ke;
-      await Promise.all((kidRows ?? []).map((k) => sb().rpc('ensure_today', { p_kid: k.id })));
+      // ensure_today returns the family-local date it booked — the authoritative "today".
+      const ensured = await Promise.all((kidRows ?? []).map((k) => sb().rpc('ensure_today', { p_kid: k.id })));
+      const serverToday = ensured.map((r) => r.data as string | null).find((d): d is string => !!d);
 
       const [fam, invite, pars, rw, rc, ch, asg, grp, gk, inst, qs, dev, pts, streaks, smn, ctk, cin, ur, li, ml, ne] = await Promise.all([
         sb().from('families').select('*').single(),
@@ -134,8 +137,9 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       ]);
       const streakMap = Object.fromEntries(streaks);
       const pointsMap = Object.fromEntries((pts.data ?? []).map((p) => [p.kid_id, p.points]));
-      // Only today's instances (family-local date comes back from ensure_today, but filter by max date).
-      const todayStr = (inst.data ?? []).reduce((m, i) => (i.date > m ? i.date : m), '');
+      // Only today's instances. The server's date wins; the newest instance date is only a
+      // fallback (a deferral books tomorrow early, which would otherwise win the max).
+      const todayStr = serverToday ?? (inst.data ?? []).reduce((m, i) => (i.date > m ? i.date : m), '');
       const todays = (inst.data ?? []).filter((i) => i.date === todayStr);
 
       setSettings({
@@ -210,6 +214,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         id: m.id, kidId: m.kid_id, cents: m.cents, kind: m.kind, note: m.note ?? undefined, createdAt: m.created_at,
       })));
       setNightEvents((ne.data ?? []).map((n) => ({ id: n.id, kidId: n.kid_id, kind: n.kind, at: n.at })));
+      setLastSync(new Date());
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -616,8 +621,9 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       },
       signOut: async () => { await sb().auth.signOut(); },
       reload: load,
+      lastSync,
     };
-  }, [role, currentKidId, kids, chores, groups, instances, quests, devices, settings, parents, rewards, rewardClaims, summons, criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger, nightEvents, loading, error, identity, load, uploadProof, tick]);
+  }, [role, currentKidId, kids, chores, groups, instances, quests, devices, settings, parents, rewards, rewardClaims, summons, criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger, nightEvents, loading, lastSync, error, identity, load, uploadProof, tick]);
 
   // Push lock state + per-state shield content to the native shield whenever either
   // changes (kid devices only). Content changes while still locked (a chore approved,
