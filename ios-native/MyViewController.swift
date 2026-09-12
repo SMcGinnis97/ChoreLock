@@ -11,5 +11,11 @@ import Capacitor
 class MyViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(ScreenTimePlugin())
+        // WKWebView does not reliably fire `visibilitychange` when the app comes back
+        // from the switcher, so the web app never refetched after the midnight reset
+        // until force-quit. Post an explicit resume event on every foreground.
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.bridge?.triggerWindowJSEvent(eventName: "chorekeyResume")
+        }
     }
 }

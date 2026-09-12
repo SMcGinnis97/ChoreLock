@@ -16,6 +16,31 @@ import ScreenTime from '../native/screenTime';
 
 const sb = () => supabase!;
 const fmtTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : undefined);
+const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+/**
+ * Runs `cb` whenever the app comes back to the foreground. WKWebView does not
+ * reliably fire `visibilitychange` when Capacitor resumes from the app switcher
+ * (observed: after the midnight reset the kid app kept yesterday's chore list
+ * until force-quit), so we listen to every signal we can get: visibilitychange,
+ * window focus, pageshow, and the `chorekeyResume` event MyViewController posts
+ * from UIApplication.didBecomeActive. Debounced so the burst counts once.
+ */
+function onForeground(cb: () => void) {
+  let last = 0;
+  const fire = () => { const n = Date.now(); if (n - last < 800) return; last = n; cb(); };
+  const onVis = () => { if (document.visibilityState === 'visible') fire(); };
+  document.addEventListener('visibilitychange', onVis);
+  window.addEventListener('focus', fire);
+  window.addEventListener('pageshow', fire);
+  window.addEventListener('chorekeyResume', fire);
+  return () => {
+    document.removeEventListener('visibilitychange', onVis);
+    window.removeEventListener('focus', fire);
+    window.removeEventListener('pageshow', fire);
+    window.removeEventListener('chorekeyResume', fire);
+  };
+}
 const isVideoPath = (p?: string | null) => !!p && (p.endsWith('.mp4') || p.endsWith('.webm'));
 const signed = async (path?: string | null) => {
   if (!path) return undefined;
@@ -67,12 +92,15 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
   const [currentKidId, setCurrentKidId] = useState(identity.kidId ?? '');
   const [tick, setTick] = useState(0); // minute pulse so due-time lock flips re-evaluate while open
   const lastApplied = useRef<string | null>(null); // JSON of [lockState, shieldContent]
+  const loadedDate = useRef(localDate()); // device-local date of the last load — a rollover forces a reload
+  const [rtEpoch, setRtEpoch] = useState(0); // bump to tear down + resubscribe the realtime channel
 
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 60_000); return () => clearInterval(t); }, []);
 
   const load = useCallback(async () => {
     try {
       setError(null);
+      loadedDate.current = localDate();
       const kidIds = role === 'kid' ? [identity.kidId!] : null;
       // Ensure today's instances exist (idempotent) before reading.
       const { data: kidRows, error: ke } = kidIds
@@ -191,9 +219,15 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
 
   useEffect(() => { void load(); }, [load]);
 
+  // The day rolled over while the app sat open (iPad on the couch overnight):
+  // yesterday's instances are dead, fetch today's. The minute tick drives this.
+  useEffect(() => {
+    if (!loading && loadedDate.current !== localDate()) void load();
+  }, [tick, loading, load]);
+
   // Realtime: any change to instances/kids/quests in scope -> reload.
   useEffect(() => {
-    const chan = sb().channel('chorelock')
+    const chan = sb().channel(`chorelock-${rtEpoch}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chore_instances' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kids' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'side_quests' }, () => void load())
@@ -205,10 +239,18 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'list_items' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'money_ledger' }, () => void load())
       .subscribe();
-    const onVis = () => { if (document.visibilityState === 'visible') void load(); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => { sb().removeChannel(chan); document.removeEventListener('visibilitychange', onVis); };
-  }, [load]);
+    const off = onForeground(() => {
+      void (async () => {
+        // A long background suspends the socket and can outlive the access token:
+        // refresh the session first so the reload isn't a 401, then reload, and
+        // resubscribe if the channel never came back on its own.
+        try { await sb().auth.getSession(); } catch { /* offline — load() reports it */ }
+        await load();
+        if (chan.state !== 'joined' && chan.state !== 'joining') setRtEpoch((n) => n + 1);
+      })();
+    });
+    return () => { sb().removeChannel(chan); off(); };
+  }, [load, rtEpoch]);
 
   // Register this install as a device for the kid, set up APNs, and hand the reset time to the
   // native DeviceActivity schedule so the shield re-engages locally even without network.
@@ -242,9 +284,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       } catch { /* older native build without the methods */ }
     };
     void drain();
-    const onVis = () => { if (document.visibilityState === 'visible') void drain(); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
+    return onForeground(() => void drain());
   }, [role, identity.kidId, load]);
 
   // Keep the night-watch schedules on the kid device in sync with family settings.

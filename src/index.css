@@ -211,7 +211,8 @@ textarea.field { resize: vertical; min-height: 72px; }
 .confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 40; }
 .confetti i { position: absolute; top: 0; display: block; width: 8px; height: 13px; border-radius: 2px; animation: confettiFall 2.6s linear both; }
 .confetti i.c-dot { width: 9px; height: 9px; border-radius: 50%; }
-@keyframes confettiFall { from { transform: translateY(-30px) rotate(0deg); opacity: 1; } to { transform: translateY(600px) rotate(720deg); opacity: .85; } }
+/* Falls past the bottom edge on any viewport (a fixed 600px stalled mid-screen on a landscape iPad) and fades out. */
+@keyframes confettiFall { from { transform: translateY(-30px) rotate(0deg); opacity: 1; } 80% { opacity: .9; } to { transform: translateY(calc(100vh + 40px)) rotate(720deg); opacity: 0; } }
 .float-pill { position: absolute; left: 50%; transform: translateX(-50%); background: var(--bonus-tint); color: var(--bonus-text); font-weight: 800; font-size: 13px; padding: 5px 11px; border-radius: 999px; pointer-events: none; animation: floatUp 2.6s ease-out both; white-space: nowrap; }
 @keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 10px); } 18% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -30px); } }
 .stamp { position: absolute; top: 40%; left: 50%; margin-left: -110px; width: 220px; text-align: center; border: 4px solid var(--ok); color: var(--ok-text); background: rgba(230,246,236,.9); font-family: var(--font-display); font-weight: 800; font-size: 24px; padding: 10px 0; border-radius: 12px; transform: rotate(-8deg); animation: stampIn .5s cubic-bezier(.2,1.4,.4,1) both; z-index: 5; }
@@ -256,8 +257,11 @@ textarea.field { resize: vertical; min-height: 72px; }
 }
 
 /* ---- Camera ---- */
-.viewfinder { flex: 1; margin: 0 12px; border-radius: 20px; overflow: hidden; position: relative; background: #000; min-height: 50vh; }
-.viewfinder video, .viewfinder img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The media is absolutely positioned so its intrinsic 16:9 height never sets the box size —
+   in landscape a wide viewfinder otherwise grew taller than the screen and pushed the shutter
+   below the fold. The viewfinder takes whatever height flex leaves it. */
+.viewfinder { flex: 1 1 0; margin: 0 12px; border-radius: 20px; overflow: hidden; position: relative; background: #000; min-height: 40dvh; }
+.viewfinder video, .viewfinder img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .corner { position: absolute; width: 26px; height: 26px; border: 3px solid rgba(255,255,255,.55); }
 .corner.tl { top: 16px; left: 16px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
 .corner.tr { top: 16px; right: 16px; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
