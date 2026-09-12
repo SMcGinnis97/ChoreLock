@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { bedtimeNow, fmtClock, isGrounded, isMissed, pastDue, useStore, type QuestDraft } from '../../lib/store';
+import { bedtimeNow, dueTimeOf, fmtClock, isGrounded, isMissed, pastDue, useStore, type QuestDraft } from '../../lib/store';
 import { Avatar, Icon, todayLabel } from '../../components/ui';
 import { PullToRefresh } from '../../components/feedback';
 import { zoomMedia } from '../../components/lightbox';
@@ -56,7 +56,7 @@ export default function Dashboard() {
         // Escalated chores: overdue = 'escalate', past due, still not approved. Wi-Fi is already off — this makes sure a parent SEES it.
         const late = s.instances
           .map((i) => ({ i, c: s.chores.find((x) => x.id === i.choreId) }))
-          .filter(({ i, c }) => c?.overdue === 'escalate' && i.status !== 'approved' && pastDue(c));
+          .filter(({ i, c }) => c?.overdue === 'escalate' && i.status !== 'approved' && !i.rolled && pastDue(c, i));
         if (!late.length) return null;
         return (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '4px solid var(--danger)' }}>
@@ -254,34 +254,88 @@ export default function Dashboard() {
 
       {questDraft && <QuestSheet draft={questDraft} onChange={setQuestDraft} onClose={() => setQuestDraft(null)} onSave={() => { s.saveQuest(questDraft); setQuestDraft(null); }} />}
 
-      {dayListFor && (
-        <div className="sheet-backdrop" onClick={() => setDayListFor(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
-            <div className="handle" />
-            <h2 style={{ fontSize: 22 }}>{dayListFor.name}’s chores today</h2>
-            <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>Mark things done by hand — for dead phones and other real life.</p>
-            <div className="col">
-              {s.instances.filter((i) => i.kidId === dayListFor.id).map((i) => {
-                const c = s.chores.find((x) => x.id === i.choreId);
-                if (!c) return null;
-                return (
-                  <div key={i.id} className="card row" style={{ padding: 10 }}>
-                    <span className="chore-emoji">{c.emoji}</span>
-                    <div className="spacer"><div className="chore-title">{c.name}</div><div className="chore-sub">{i.status === 'approved' ? 'Approved' : isMissed(i, c) ? '⌛ Missed — expired at its due time' : i.status === 'todo' ? 'Not done yet' : i.status === 'submitted' ? 'Waiting for review' : `Rejected — ${i.rejectionReason ?? 'redo'}`}</div></div>
-                    {i.status === 'approved'
-                      ? <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => s.reopen(i.id)}>Undo</button>
-                      : <button className="btn btn--outline-ok" onClick={() => s.approve(i.id)}>Mark done</button>}
-                  </div>
-                );
-              })}
-              {s.instances.filter((i) => i.kidId === dayListFor.id).length === 0 && <p className="quiet" style={{ margin: 0 }}>No chores today.</p>}
-            </div>
-            <button className="btn btn--primary" onClick={() => setDayListFor(null)}>Done</button>
-          </div>
-        </div>
-      )}
+      {dayListFor && <KidDaySheet kid={dayListFor} onClose={() => setDayListFor(null)} />}
     </div>
     </PullToRefresh>
+  );
+}
+
+/**
+ * One kid's day, parent-side: every chore instance with "Mark done" / "Undo", a per-day
+ * due time, and "Tomorrow" to push it off (streak-neutral today, booked for tomorrow);
+ * plus their side quests — and the open pool — with "Mark done" on the kid's behalf.
+ * For dead phones and other real life.
+ */
+function KidDaySheet({ kid, onClose }: { kid: Kid; onClose: () => void }) {
+  const s = useStore();
+  const mine = s.instances.filter((i) => i.kidId === kid.id);
+  const quests = s.quests.filter((q) => q.status !== 'approved' && (q.kidId === kid.id || (q.kidId === null && q.status === 'open')));
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+        <div className="handle" />
+        <h2 style={{ fontSize: 22 }}>{kid.name}’s day</h2>
+        <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>Mark things done by hand, change a due time for today, or push a chore to tomorrow.</p>
+        <div className="section-label" style={{ margin: 0 }}>Chores</div>
+        <div className="col">
+          {mine.map((i) => {
+            const c = s.chores.find((x) => x.id === i.choreId);
+            if (!c) return null;
+            const due = dueTimeOf(c, i);
+            const open = i.status !== 'approved' && !i.rolled;
+            const sub = i.rolled ? '➡️ Moved to tomorrow'
+              : i.status === 'approved' ? 'Approved'
+              : isMissed(i, c) ? '⌛ Missed — expired at its due time'
+              : i.status === 'todo' ? 'Not done yet'
+              : i.status === 'submitted' ? 'Waiting for review'
+              : `Rejected — ${i.rejectionReason ?? 'redo'}`;
+            return (
+              <div key={i.id} className="card" style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="row">
+                  <span className="chore-emoji">{c.emoji}</span>
+                  <div className="spacer">
+                    <div className="chore-title">{c.name}{!c.required && <span className="chip chip--bonus" style={{ marginLeft: 8 }}>bonus</span>}</div>
+                    <div className="chore-sub">{sub}{open && due ? ` · due ${fmtTime(due)}${i.dueOverride ? ' (changed)' : ''}` : ''}</div>
+                  </div>
+                  {i.status === 'approved'
+                    ? <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => s.reopen(i.id)}>Undo</button>
+                    : !i.rolled && <button className="btn btn--outline-ok" onClick={() => s.approve(i.id)}>Mark done</button>}
+                </div>
+                {open && (
+                  <div className="row" style={{ gap: 8, paddingLeft: 34, flexWrap: 'wrap' }}>
+                    <span className="sub" style={{ flexShrink: 0 }}>Due today</span>
+                    <input className="field" type="time" style={{ padding: 6, width: 130 }} value={due ?? ''} onChange={(e) => s.setDueOverride(i.id, e.target.value || null)} />
+                    {i.dueOverride && <button className="btn btn--text" style={{ minHeight: 0, padding: 0 }} onClick={() => s.setDueOverride(i.id, null)}>Reset</button>}
+                    <span className="spacer" />
+                    <button className="btn btn--outline" style={{ borderWidth: 1 }} onClick={() => { if (confirm(`Move “${c.name}” to tomorrow? Today stays streak-safe.`)) s.deferInstance(i.id); }}>Tomorrow →</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {mine.length === 0 && <p className="quiet" style={{ margin: 0 }}>No chores today.</p>}
+        </div>
+        {quests.length > 0 && (
+          <>
+            <div className="section-label" style={{ margin: 0 }}>⭐ Side quests</div>
+            <div className="col">
+              {quests.map((q) => (
+                <div key={q.id} className="card row" style={{ padding: 10 }}>
+                  <span className="chore-emoji">⭐</span>
+                  <div className="spacer">
+                    <div className="chore-title">{q.title}</div>
+                    <div className="chore-sub">{q.kidId === null ? 'Open — nobody has claimed it' : q.status === 'submitted' ? 'Submitted — waiting for review' : q.status === 'rejected' ? `Rejected — ${q.rejectionReason ?? 'redo'}` : `${kid.name} is on it`} · {q.cents ? fmtMoney(q.cents) : `${q.points} pts`}</div>
+                  </div>
+                  <button className="btn btn--outline-ok" onClick={() => s.completeQuest(q.id, kid.id)}>Mark done</button>
+                </div>
+              ))}
+            </div>
+            <p className="hint" style={{ textAlign: 'left', margin: 0 }}>Marking a quest done credits {kid.name} the points or money right away.</p>
+          </>
+        )}
+        <button className="btn btn--primary" onClick={onClose}>Done</button>
+      </div>
+    </div>
   );
 }
 

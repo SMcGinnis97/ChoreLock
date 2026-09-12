@@ -86,7 +86,8 @@ export interface ChoreInstance {
   photoUrl?: string; // first proof photo (legacy single-photo spots)
   photoUrls?: string[]; // all proof photos (max 5)
   videoUrl?: string; // short clip proof (chore may require photo, video, or both)
-  rolled?: boolean; // unfinished rollover chore, re-booked the next day (streak-neutral)
+  rolled?: boolean; // unfinished rollover chore, re-booked the next day (streak-neutral); also set when a parent pushes it to tomorrow
+  dueOverride?: string; // "HH:MM" — a parent changed this instance's due time for today (beats the chore's dueTime)
   streakExempt?: boolean; // parent kept the streak alive when rejecting
   note?: string;
   submittedAt?: string;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { balanceCents, bedtimeNow, criticalLateMin, criticalsForKid, fmtClock, fmtMoney, hasPass, isGrounded, isMissed, useStore } from '../../lib/store';
+import { balanceCents, bedtimeNow, criticalLateMin, criticalsForKid, dueTimeOf, fmtClock, fmtMoney, hasPass, isGrounded, isMissed, useStore } from '../../lib/store';
 import WeNeedCard from '../../components/weneed';
 import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
@@ -231,17 +231,20 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
           <div className="col">
             {required.map(({ i, c }) => {
               const missed = isMissed(i, c);
-              const actionable = !missed && (i.status === 'todo' || i.status === 'rejected');
+              const moved = !!i.rolled && i.status !== 'approved'; // a parent pushed it to tomorrow
+              const due = dueTimeOf(c, i);
+              const actionable = !missed && !moved && (i.status === 'todo' || i.status === 'rejected');
               return (
-                <button key={i.id} className={`card card--chore ${!missed && i.id === nextId ? 'is-next' : ''} ${i.status === 'rejected' ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/submit/${i.id}`)} style={missed ? { opacity: .55 } : undefined}>
+                <button key={i.id} className={`card card--chore ${!missed && !moved && i.id === nextId ? 'is-next' : ''} ${i.status === 'rejected' && !moved ? 'is-rejected' : ''}`} disabled={!actionable} onClick={() => nav(`/kid/submit/${i.id}`)} style={missed || moved ? { opacity: .55 } : undefined}>
                   <span className="chore-emoji">{c.emoji}</span>
                   <div className="spacer">
-                    <div className="chore-title">{c.name}{c.dueTime && !missed && (i.status === 'todo' || i.status === 'rejected') ? <span className="chip chip--todo" style={{ marginLeft: 8 }}>due {fmtDue(c.dueTime)}</span> : null}</div>
-                    {missed && <div className="chore-sub" style={{ color: 'var(--danger)' }}>⌛ Missed — it was due {fmtDue(c.dueTime!)}. Today won’t count for your streak.</div>}
-                    {!missed && i.status === 'rejected' && i.rejectionReason && <div className="chore-sub chore-sub--reject">“{i.rejectionReason}”</div>}
-                    {!missed && i.status === 'todo' && c.instruction && <div className="chore-sub">{c.instruction}</div>}
+                    <div className="chore-title">{c.name}{due && !missed && !moved && (i.status === 'todo' || i.status === 'rejected') ? <span className="chip chip--todo" style={{ marginLeft: 8 }}>due {fmtDue(due)}</span> : null}</div>
+                    {moved && <div className="chore-sub">➡️ Moved to tomorrow — doesn’t count today.</div>}
+                    {missed && <div className="chore-sub" style={{ color: 'var(--danger)' }}>⌛ Missed — it was due {fmtDue(due!)}. Today won’t count for your streak.</div>}
+                    {!missed && !moved && i.status === 'rejected' && i.rejectionReason && <div className="chore-sub chore-sub--reject">“{i.rejectionReason}”</div>}
+                    {!missed && !moved && i.status === 'todo' && c.instruction && <div className="chore-sub">{c.instruction}</div>}
                   </div>
-                  {missed ? <span className="chip chip--blocked">Missed</span> : i.id === nextId ? <span className="btn btn--pill">📷 Snap it</span> : <StatusChip status={i.status} />}
+                  {moved ? <span className="chip chip--todo">Tomorrow</span> : missed ? <span className="chip chip--blocked">Missed</span> : i.id === nextId ? <span className="btn btn--pill">📷 Snap it</span> : <StatusChip status={i.status} />}
                 </button>
               );
             })}

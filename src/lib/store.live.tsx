@@ -165,7 +165,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         return {
           id: i.id, choreId: i.chore_id, kidId: i.kid_id, date: i.date, status: i.status, attempt: i.attempt,
           photoUrl: photoUrls[0], photoUrls, videoUrl: await signed(i.video_path),
-          rolled: i.rolled ?? false, streakExempt: i.streak_exempt ?? false,
+          rolled: i.rolled ?? false, streakExempt: i.streak_exempt ?? false, dueOverride: i.due_override ? i.due_override.slice(0, 5) : undefined,
           note: i.note ?? undefined, submittedAt: fmtTime(i.submitted_at), rejectionReason: i.rejection_reason ?? undefined,
           reviewedBy: i.reviewed_by ?? undefined, reviewedAt: i.reviewed_at ?? undefined,
         } as ChoreInstance;
@@ -360,6 +360,26 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       reopen: async (id) => {
         setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, status: 'todo', rejectionReason: undefined } : i)));
         await sb().from('chore_instances').update({ status: 'todo', rejection_reason: null, reviewed_at: new Date().toISOString(), reviewed_by: identity.session?.user.id }).eq('id', id);
+      },
+      setDueOverride: async (id, time) => {
+        setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, dueOverride: time ?? undefined } : i)));
+        const { error: e } = await sb().from('chore_instances').update({ due_override: time }).eq('id', id);
+        if (e) { setError(`Due time didn’t save: ${e.message}`); await load(); }
+      },
+      deferInstance: async (id) => {
+        setInstances((cur) => cur.map((i) => (i.id === id ? { ...i, rolled: true } : i)));
+        const { error: e } = await sb().rpc('defer_instance', { p_instance: id });
+        if (e) { setError(`Couldn’t move it: ${e.message}`); }
+        await load();
+      },
+      completeQuest: async (id, kidId) => {
+        const q = quests.find((x) => x.id === id);
+        const owner = q?.kidId ?? kidId ?? null;
+        if (!owner) return;
+        setQuests((cur) => cur.map((x) => (x.id === id ? { ...x, kidId: owner, status: 'approved', rejectionReason: undefined } : x)));
+        const { error: e } = await sb().from('side_quests').update({ kid_id: owner, status: 'approved', rejection_reason: null, reviewed_at: new Date().toISOString(), reviewed_by: identity.session?.user.id }).eq('id', id);
+        if (e) { setError(`Quest didn’t save: ${e.message}`); }
+        await load();
       },
       override: async (kidId, mode) => {
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, override: mode } : k)));

@@ -148,7 +148,7 @@ export function buildShieldContent(
       allowRequest: !deniedRecently,
     };
   }
-  const remaining = instances.filter((i) => i.kidId === kid.id && i.status !== 'approved' && chores.find((c) => c.id === i.choreId)?.required);
+  const remaining = instances.filter((i) => i.kidId === kid.id && i.status !== 'approved' && !i.rolled && chores.find((c) => c.id === i.choreId)?.required);
   const nextInst = remaining.find((i) => i.status === 'todo' || i.status === 'rejected') ?? remaining[0];
   const next = cap34(chores.find((c) => c.id === nextInst?.choreId)?.name ?? 'your chores');
   return {
@@ -159,23 +159,27 @@ export function buildShieldContent(
   };
 }
 
-/** True when a chore's due time has passed today. False when it has no due time. */
-export const pastDue = (c: Chore | undefined) => {
-  if (!c?.dueTime) return false;
-  const [h, m] = c.dueTime.split(':').map(Number);
-  const due = new Date(); due.setHours(h, m, 0, 0);
-  return new Date() >= due;
+/** The due time that applies to an instance: a parent's per-day override beats the chore's own. */
+export const dueTimeOf = (c: Chore | undefined, i?: ChoreInstance) => i?.dueOverride ?? c?.dueTime;
+
+/** True when the due time has passed today. False when there is no due time. */
+export const pastDue = (c: Chore | undefined, i?: ChoreInstance) => {
+  const due = dueTimeOf(c, i);
+  if (!due) return false;
+  const [h, m] = due.split(':').map(Number);
+  const at = new Date(); at.setHours(h, m, 0, 0);
+  return new Date() >= at;
 };
 
 /** An 'expire' chore that blew past its due time unapproved — dead for today, breaks the streak. */
 export const isMissed = (i: ChoreInstance, c: Chore | undefined) =>
-  !!c && c.overdue === 'expire' && i.status !== 'approved' && pastDue(c);
+  !!c && c.overdue === 'expire' && i.status !== 'approved' && !i.rolled && pastDue(c, i);
 
 /** True when a required instance blocks Wi-Fi right now (due-time and overdue-mode aware). */
 export const blocksNow = (i: ChoreInstance, c: Chore | undefined) => {
-  if (!c?.required || i.status === 'approved') return false;
-  if (c.dueTime) {
-    if (!pastDue(c)) return false;
+  if (!c?.required || i.status === 'approved' || i.rolled) return false; // rolled = pushed to tomorrow
+  if (dueTimeOf(c, i)) {
+    if (!pastDue(c, i)) return false;
     if (c.overdue === 'expire') return false; // missed, not blocking — the streak takes the hit
   }
   return true;
@@ -277,6 +281,12 @@ export interface Store {
   reject: (instanceId: string, reason: string, keepStreak?: boolean) => void;
   /** Parent escape hatch: put an instance back to 'todo' (undo a manual approve). */
   reopen: (instanceId: string) => void;
+  /** Parent changes one instance's due time for today (null = back to the chore's own). */
+  setDueOverride: (instanceId: string, time: string | null) => void;
+  /** Parent pushes an unfinished instance to tomorrow: streak-neutral today, booked for tomorrow. */
+  deferInstance: (instanceId: string) => void;
+  /** Parent marks a side quest done on a kid's behalf (kidId needed for an open quest). */
+  completeQuest: (questId: string, kidId?: string) => void;
   override: (kidId: string, mode: 'lock' | 'unlock' | null) => void;
   setAbsent: (kidId: string, until: string | null) => void;
   /** Ground (until ISO timestamp + reason) or lift (null). Grounding trumps everything. */
@@ -467,6 +477,21 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
           sync(kidId, instances, next);
           return next;
         }),
+      setDueOverride: (id, time) =>
+        setInstances((cur) => {
+          const next = cur.map((i) => (i.id === id ? { ...i, dueOverride: time ?? undefined } : i));
+          sync(cur.find((i) => i.id === id)!.kidId, next);
+          return next;
+        }),
+      deferInstance: (id) =>
+        setInstances((cur) => {
+          const src = cur.find((i) => i.id === id)!;
+          const next = cur.map((i) => (i.id === id ? { ...i, rolled: true } : i));
+          sync(src.kidId, next);
+          return next;
+        }),
+      completeQuest: (id, kidId) =>
+        setQuests((cur) => cur.map((q) => (q.id === id ? { ...q, kidId: q.kidId ?? kidId ?? null, status: 'approved', rejectionReason: undefined } : q))),
       setBedtime: (kidId, w) =>
         setKids((cur) => {
           const next = cur.map((k) => (k.id === kidId
