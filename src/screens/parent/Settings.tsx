@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { balanceCents, fmtMoney, useStore } from '../../lib/store';
+import { balanceCents, fmtClock, fmtMoney, useStore } from '../../lib/store';
 import { Avatar, Icon, Switch } from '../../components/ui';
 import type { Device, Kid } from '../../lib/types';
 import { fmtTime } from './Dashboard';
@@ -155,6 +155,52 @@ export default function Settings() {
         })}
       </div>
       <p className="hint" style={{ textAlign: 'left' }}>Side quests can also pay money instead of points — pick 💵 when you drop one. “Settle up” shows everything earned since the last payout and records the hand-over of real cash.</p>
+
+      <div className="section-label">🛏️ Bedtime</div>
+      <div className="group">
+        {s.kids.map((k) => {
+          const on = !!k.bedStart && !!k.bedEnd;
+          const weekend = !!k.bedStartWeekend && !!k.bedEndWeekend;
+          const save = (patch: Partial<{ start: string; end: string; startWeekend?: string; endWeekend?: string }>) =>
+            s.setBedtime(k.id, { start: k.bedStart!, end: k.bedEnd!, startWeekend: k.bedStartWeekend, endWeekend: k.bedEndWeekend, ...patch });
+          return (
+            <div key={k.id} className="group-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+              <div className="row">
+                <Avatar kid={k} size="sm" />
+                <div className="spacer">
+                  <div className="title">{k.name}</div>
+                  <div className="sub">{on ? `${fmtClock(k.bedStart!)} – ${fmtClock(k.bedEnd!)}${weekend ? ` · Fri & Sat ${fmtClock(k.bedStartWeekend!)} – ${fmtClock(k.bedEndWeekend!)}` : ''}` : 'No bedtime lock'}</div>
+                </div>
+                <Switch on={on} onChange={(v) => s.setBedtime(k.id, v ? { start: k.age >= 13 ? '22:00' : '21:00', end: '06:30' } : null)} />
+              </div>
+              {on && (
+                <>
+                  <div className="row" style={{ gap: 8 }}>
+                    <span className="sub" style={{ flexShrink: 0, width: 92 }}>School nights</span>
+                    <input className="field" type="time" style={{ padding: 8 }} value={k.bedStart} onChange={(e) => e.target.value && save({ start: e.target.value })} />
+                    <span className="sub">to</span>
+                    <input className="field" type="time" style={{ padding: 8 }} value={k.bedEnd} onChange={(e) => e.target.value && save({ end: e.target.value })} />
+                  </div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <span className="sub" style={{ flexShrink: 0, width: 92 }}>Fri & Sat</span>
+                    {weekend
+                      ? (
+                        <>
+                          <input className="field" type="time" style={{ padding: 8 }} value={k.bedStartWeekend} onChange={(e) => e.target.value && save({ startWeekend: e.target.value })} />
+                          <span className="sub">to</span>
+                          <input className="field" type="time" style={{ padding: 8 }} value={k.bedEndWeekend} onChange={(e) => e.target.value && save({ endWeekend: e.target.value })} />
+                          <button className="btn btn--text" style={{ minHeight: 0 }} onClick={() => save({ startWeekend: undefined, endWeekend: undefined })}>Same</button>
+                        </>
+                      )
+                      : <button className="btn btn--text" style={{ minHeight: 0, padding: 0 }} onClick={() => save({ startWeekend: k.bedStart === '22:00' ? '23:00' : '22:00', endWeekend: '07:30' })}>Same as school nights · make different</button>}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="hint" style={{ textAlign: 'left' }}>Blocks the kid’s chosen apps for the whole window, chores or not — even offline. Kids can still tap “Ask for 15 minutes” on the lock screen, and you can tap “stay up tonight” on the Dashboard for a one-off. Chores still count in the morning.</p>
 
       <div className="section-label">🌙 Night watch</div>
       <div className="group">

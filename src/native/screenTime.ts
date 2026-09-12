@@ -27,11 +27,27 @@ export interface ShieldContent {
   allowRequest?: boolean;
 }
 
+/**
+ * Offline hand-off for the monitor extension: when tonight's bedtime window closes it
+ * applies this (the lock state and copy computed WITHOUT bedtime), unless the daily
+ * reset fired during the window — then it errs locked with generic chores copy, exactly
+ * as the reset itself would have.
+ */
+export interface AfterBedtime extends ShieldContent { enabled: boolean }
+
+export interface ShieldExtras {
+  afterBedtime?: AfterBedtime;
+  /** A higher-priority lock (grounded/critical) owns the shield copy: bedtime start must not repaint it. */
+  bedtimeSuppressed?: boolean;
+}
+
+export interface BedtimeSlot { startHour: number; startMinute: number; endHour: number; endMinute: number; title: string; subtitle: string }
+
 export interface ScreenTimePlugin {
   requestAuthorization(): Promise<{ status: 'approved' | 'denied' | 'notDetermined' }>;
   pickBlockedApps(): Promise<{ appCount: number; categoryCount: number; webDomainCount: number }>;
   getSelectionSummary(): Promise<{ appCount: number; categoryCount: number; webDomainCount: number }>;
-  setShield(opts: { enabled: boolean } & Partial<ShieldContent>): Promise<void>;
+  setShield(opts: { enabled: boolean } & Partial<ShieldContent> & ShieldExtras): Promise<void>;
   getStatus(): Promise<{ authorized: boolean; shielded: boolean }>;
   /** Re-apply the shield locally every day at this time via DeviceActivityMonitor (no network needed). */
   scheduleDailyReset(opts: { hour: number; minute: number }): Promise<void>;
@@ -49,6 +65,14 @@ export interface ScreenTimePlugin {
   configureNightWatch(opts: { enabled: boolean; startHour?: number; startMinute?: number; endHour?: number; endMinute?: number; thresholdMinutes?: number }): Promise<void>;
   /** Night/wake threshold crossings recorded by the monitor extension, cleared on read. */
   drainNightEvents(): Promise<{ events: { kind: 'night' | 'wake'; at: number }[] }>;
+  /**
+   * (Re)register the nightly bedtime DeviceActivity schedules, or stop them with
+   * enabled=false. One daily schedule when every night is the same; seven weekday
+   * schedules when Fri/Sat differ. The monitor extension shields at the start (with
+   * the slot's copy) and restores the hand-off state at the end — no network needed.
+   * skipEvening (YYYY-MM-DD, device-local) makes the extension ignore that start.
+   */
+  configureBedtime(opts: { enabled: boolean; weekday?: BedtimeSlot; weekend?: BedtimeSlot; skipEvening?: string; allowRequest?: boolean }): Promise<{ scheduled: number }>;
 }
 
 const ScreenTime = registerPlugin<ScreenTimePlugin>('ScreenTime', {
@@ -66,16 +90,21 @@ const webStub: ScreenTimePlugin = {
   async drainShieldRequests() { return { requests: [] }; },
   async configureNightWatch(opts) { console.info('[ScreenTime/web] configureNightWatch', opts); },
   async drainNightEvents() { return { events: [] }; },
+  async configureBedtime(opts) { console.info('[ScreenTime/web] configureBedtime', opts); return { scheduled: 0 }; },
 };
 
 export const isNativeIOS = () => Capacitor.getPlatform() === 'ios';
 
-export async function applyLockState(state: LockState, content?: ShieldContent) {
+/** What the daily reset shows: generic chores copy, locked. Also the bedtime-end fallback. */
+export const RESET_SHIELD: ShieldContent = { state: 'chores', title: 'Chores first 🔑', subtitle: 'Open ChoreKey to snap your proof.' };
+
+export async function applyLockState(state: LockState, content?: ShieldContent, extras?: ShieldExtras) {
   if (state === 'unknown') return; // keep last known
   try {
     await ScreenTime.setShield({
       enabled: state === 'locked',
-      ...(content ?? { state: 'chores', title: 'Chores first 🔑', subtitle: 'Open ChoreKey to snap your proof.' }),
+      ...(content ?? RESET_SHIELD),
+      ...extras,
     });
   } catch (e) {
     console.warn('[ScreenTime] setShield failed', e);

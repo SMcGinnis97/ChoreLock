@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
-import { isGrounded, isMissed, pastDue, useStore, type QuestDraft } from '../../lib/store';
+import { bedtimeNow, fmtClock, isGrounded, isMissed, pastDue, useStore, type QuestDraft } from '../../lib/store';
 import { Avatar, Icon, todayLabel } from '../../components/ui';
 import { PullToRefresh } from '../../components/feedback';
 import { zoomMedia } from '../../components/lightbox';
@@ -138,12 +138,13 @@ export default function Dashboard() {
           const pend = pendingFor(k.id);
           const full = p.total > 0 && p.done === p.total;
           const grounded = isGrounded(k);
+          const bt = bedtimeNow(k);
           return (
             <div key={k.id} className="card kid-card">
               <button className="row" style={{ textAlign: 'left', width: '100%' }} onClick={() => setDayListFor(k)}>
                 <Avatar kid={k} size="lg" />
-                <div className="spacer"><div className="kid-name">{k.name}</div><div className="kid-sub">{grounded ? `😤 Grounded ${fmtGrounded(k.groundedUntil!)}` : k.absentUntil ? `🏖️ Away ${fmtAway(k.absentUntil)}` : `${p.done} of ${p.total} approved · ⭐ ${k.points} pts`}</div></div>
-                <span className={`wifi-pill ${lock === 'unlocked' ? 'wifi-pill--on' : 'wifi-pill--off'}`}><span className="dot" />{lock === 'unlocked' ? 'Unlocked' : 'Locked'}{grounded ? ' · grounded' : k.override ? ' · manual' : ''}</span>
+                <div className="spacer"><div className="kid-name">{k.name}</div><div className="kid-sub">{grounded ? `😤 Grounded ${fmtGrounded(k.groundedUntil!)}` : k.absentUntil ? `🏖️ Away ${fmtAway(k.absentUntil)}` : bt.active ? `🛏️ In bed until ${fmtClock(bt.end)} · ${p.done} of ${p.total} approved` : `${p.done} of ${p.total} approved · ⭐ ${k.points} pts`}</div></div>
+                <span className={`wifi-pill ${lock === 'unlocked' ? 'wifi-pill--on' : 'wifi-pill--off'}`}><span className="dot" />{lock === 'unlocked' ? 'Unlocked' : 'Locked'}{grounded ? ' · grounded' : bt.active ? ' · bedtime' : k.override ? ' · manual' : ''}</span>
               </button>
               {grounded && k.groundedReason && <div className="quote" style={{ padding: '8px 12px' }}>“{k.groundedReason}”</div>}
               <div className="progress"><div className={full ? 'full' : ''} style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} /></div>
@@ -157,11 +158,18 @@ export default function Dashboard() {
                         <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => setGroundFor(k)}>Ground</button>
                         {lock === 'unlocked'
                           ? <button className="btn btn--outline-danger" style={{ borderWidth: 1 }} onClick={() => { if (confirm(`Lock ${k.name}’s devices now?`)) s.override(k.id, 'lock'); }}>Lock now</button>
-                          : <button className="btn btn--outline-ok" onClick={() => s.override(k.id, 'unlock')}>Unlock now</button>}
+                          : bt.active
+                            ? <button className="btn btn--outline-ok" onClick={() => s.skipBedtime(k.id, true)}>Stay up</button>
+                            : <button className="btn btn--outline-ok" onClick={() => s.override(k.id, 'unlock')}>Unlock now</button>}
                       </>}
                 </div>
               </div>
               {k.override && !grounded && <button className="btn btn--text" style={{ alignSelf: 'flex-start', minHeight: 0 }} onClick={() => s.override(k.id, null)}>Clear manual override</button>}
+              {bt.on && !grounded && !k.absentUntil && !bt.active && (
+                <button className="btn btn--text" style={{ alignSelf: 'flex-start', minHeight: 0 }} onClick={() => s.skipBedtime(k.id, !bt.skipped)}>
+                  {bt.skipped ? '🛏️ No bedtime tonight — turn it back on' : `🛏️ Bedtime ${fmtClock(bt.start)} tonight — let ${k.name} stay up`}
+                </button>
+              )}
             </div>
           );
         })}

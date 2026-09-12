@@ -32,6 +32,7 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "drainShieldRequests", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configureNightWatch", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "drainNightEvents", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "configureBedtime", returnType: CAPPluginReturnPromise),
     ]
 
     private let store = ManagedSettingsStore(named: .init("chorelock"))
@@ -106,6 +107,18 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         if let t = call.getString("title") { defaults.set(t, forKey: "shieldTitle") }
         if let s = call.getString("subtitle") { defaults.set(s, forKey: "shieldSubtitle") }
         if let a = call.getBool("allowRequest") { defaults.set(a, forKey: "shieldAllowRequest") }
+        // Bedtime hand-off for the monitor extension (see configureBedtime): the state to
+        // restore when the window closes, and whether a higher-priority lock owns the copy.
+        if let after = call.getObject("afterBedtime") {
+            defaults.set([
+                "enabled": (after["enabled"] as? Bool) ?? false,
+                "state": (after["state"] as? String) ?? "chores",
+                "title": (after["title"] as? String) ?? "Chores first 🔑",
+                "subtitle": (after["subtitle"] as? String) ?? "Open ChoreKey to snap your proof.",
+                "allowRequest": (after["allowRequest"] as? Bool) ?? true,
+            ] as [String: Any], forKey: "bedtimeAfter")
+        }
+        if let sup = call.getBool("bedtimeSuppressed") { defaults.set(sup, forKey: "bedtimeSuppressed") }
         applyShield(enabled: enabled)
         call.resolve()
     }
@@ -236,6 +249,61 @@ public class ScreenTimePlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(["events": events.map { ["kind": ($0["kind"] as? String) ?? "", "at": ($0["at"] as? Double) ?? 0] }])
     }
 
+    // MARK: Bedtime (nightly lock window, offline-reliable)
+    // Repeating DeviceActivity schedules over the kid's bedtime window. The monitor
+    // extension shields at intervalDidStart with the slot's copy and restores the
+    // hand-off state (bedtimeAfter, written by setShield) at intervalDidEnd — so both
+    // edges work with the app closed and no network. One daily schedule when every
+    // night is the same; seven weekday ones (Sun=1…Sat=7) when Fri/Sat differ, since a
+    // weekly schedule needs the weekday component. Every call replaces the set.
+    @objc func configureBedtime(_ call: CAPPluginCall) {
+        let center = DeviceActivityCenter()
+        let old = center.activities.filter { $0.rawValue.hasPrefix("chorelock.bedtime") }
+        if !old.isEmpty { center.stopMonitoring(old) }
+        defaults.set(call.getBool("allowRequest") ?? true, forKey: "bedtimeAllowRequest")
+        if let skip = call.getString("skipEvening") { defaults.set(skip, forKey: "bedtimeSkipEvening") }
+        else { defaults.removeObject(forKey: "bedtimeSkipEvening") }
+        guard call.getBool("enabled") ?? false, let weekday = call.getObject("weekday") else {
+            defaults.removeObject(forKey: "bedtimePayloads")
+            call.resolve(["scheduled": 0]); return
+        }
+        let weekend = call.getObject("weekend")
+
+        func slot(_ o: JSObject) -> (Int, Int, Int, Int, String, String)? {
+            guard let sh = o["startHour"] as? Int, let sm = o["startMinute"] as? Int,
+                  let eh = o["endHour"] as? Int, let em = o["endMinute"] as? Int else { return nil }
+            // DeviceActivity rejects windows under 15 minutes.
+            let span = ((eh * 60 + em) - (sh * 60 + sm) + 1440) % 1440
+            guard span >= 15 else { return nil }
+            return (sh, sm, eh, em, (o["title"] as? String) ?? "Goodnight 🌙", (o["subtitle"] as? String) ?? "Screens are back in the morning.")
+        }
+        guard let wd = slot(weekday) else { call.reject("bedtime window must be at least 15 minutes"); return }
+        let we = weekend.flatMap(slot)
+
+        var payloads: [String: [String: String]] = [:]
+        var started = 0
+        func register(_ name: DeviceActivityName, _ s: (Int, Int, Int, Int, String, String), weekday w: Int?) {
+            let crosses = (s.0 * 60 + s.1) > (s.2 * 60 + s.3)
+            var start = DateComponents(hour: s.0, minute: s.1)
+            var end = DateComponents(hour: s.2, minute: s.3)
+            if let w = w { start.weekday = w; end.weekday = crosses ? (w % 7) + 1 : w }
+            do {
+                try center.startMonitoring(name, during: DeviceActivitySchedule(intervalStart: start, intervalEnd: end, repeats: true))
+                payloads[name.rawValue] = ["title": s.4, "subtitle": s.5]
+                started += 1
+            } catch {
+                // Keep registering the rest; the count tells the app how many stuck.
+            }
+        }
+        if let we = we {
+            for w in 1...7 { register(DeviceActivityName("chorelock.bedtime.\(w)"), (w == 6 || w == 7) ? we : wd, weekday: w) }
+        } else {
+            register(.bedtime, wd, weekday: nil)
+        }
+        defaults.set(payloads, forKey: "bedtimePayloads")
+        call.resolve(["scheduled": started])
+    }
+
     @objc func getStatus(_ call: CAPPluginCall) {
         Task {
             // authorizationStatus settles asynchronously after a cold launch, so an
@@ -272,6 +340,7 @@ extension DeviceActivityName {
     static let dailyReset = Self("chorelock.dailyReset")
     static let night = Self("chorelock.night")
     static let wake = Self("chorelock.wake")
+    static let bedtime = Self("chorelock.bedtime")
 }
 
 extension DeviceActivityEvent.Name {

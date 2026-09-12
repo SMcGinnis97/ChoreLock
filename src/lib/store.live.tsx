@@ -7,9 +7,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { blocksNow, buildShieldContent, criticalLocked, hasPass, isGrounded, Ctx, type CriticalDraft, type QuestDraft, type Role, type Store } from './store';
+import { bedtimeNow, blocksNow, buildShieldContent, criticalLocked, fmtClock, hasPass, isGrounded, Ctx, type CriticalDraft, type QuestDraft, type Role, type Store } from './store';
 import type { Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
-import { applyLockState } from '../native/screenTime';
+import { applyLockState, RESET_SHIELD, type BedtimeSlot } from '../native/screenTime';
 import { Capacitor } from '@capacitor/core';
 import { installId, setupPush } from '../native/push';
 import ScreenTime from '../native/screenTime';
@@ -130,7 +130,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         id: g.id, name: g.name, emoji: g.emoji ?? '📋', rotationIndex: g.rotation_index ?? 0,
         kidIds: (gk.data ?? []).filter((x) => x.group_id === g.id).map((x) => x.kid_id),
       })));
-      setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, groundedUntil: k.grounded_until ?? undefined, groundedReason: k.grounded_reason ?? undefined, unlockUntil: k.unlock_until ?? undefined, joinCode: k.join_code ?? undefined })));
+      setKids((kidRows ?? []).map((k) => ({ id: k.id, name: k.name, age: k.age ?? 0, avatarColor: k.avatar_color, lockState: 'unknown', streakDays: streakMap[k.id] ?? 0, points: pointsMap[k.id] ?? 0, override: k.override_date === todayStr ? k.override : null, absentUntil: k.absent_until && k.absent_until >= todayStr ? k.absent_until : undefined, groundedUntil: k.grounded_until ?? undefined, groundedReason: k.grounded_reason ?? undefined, unlockUntil: k.unlock_until ?? undefined, bedStart: k.bed_start ? k.bed_start.slice(0, 5) : undefined, bedEnd: k.bed_end ? k.bed_end.slice(0, 5) : undefined, bedStartWeekend: k.bed_start_weekend ? k.bed_start_weekend.slice(0, 5) : undefined, bedEndWeekend: k.bed_end_weekend ? k.bed_end_weekend.slice(0, 5) : undefined, bedOffDate: k.bed_off_date ?? undefined, joinCode: k.join_code ?? undefined })));
       setInstances(await Promise.all(todays.map(async (i) => {
         const paths: string[] = (i.photo_paths as string[] | null) ?? (i.photo_path ? [i.photo_path] : []);
         const photoUrls = (await Promise.all(paths.map(signed))).filter((u): u is string => !!u);
@@ -271,13 +271,14 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       const req = instances.filter((i) => i.kidId === kidId && chores.find((c) => c.id === i.choreId)?.required);
       return { done: req.filter((i) => i.status === 'approved').length, total: req.length };
     };
-    const kidLockState = (kidId: string): LockState => {
+    const kidLockState = (kidId: string, opts?: { ignoreBedtime?: boolean }): LockState => {
       if (error) return 'unknown';
       const kid = kids.find((k) => k.id === kidId);
       if (isGrounded(kid)) return 'locked';
       if (kid?.absentUntil) return 'unlocked';
       if (criticalLocked(criticalTasks, criticalInstances, kidId)) return 'locked';
       if (hasPass(kid)) return 'unlocked';
+      if (!opts?.ignoreBedtime && bedtimeNow(kid).active) return 'locked';
       if (kid?.override === 'unlock') return 'unlocked';
       if (kid?.override === 'lock') return 'locked';
       return instances.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId))) ? 'locked' : 'unlocked';
@@ -399,6 +400,22 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k)));
         const { error: e } = await sb().rpc('set_grounding', { p_kid: kidId, p_until: until, p_reason: reason ?? null });
         if (e) { setError(`Grounding didn’t save: ${e.message}`); await load(); }
+      },
+      setBedtime: async (kidId, w) => {
+        const pair = !!w?.startWeekend && !!w.endWeekend;
+        setKids((cur) => cur.map((k) => (k.id === kidId
+          ? { ...k, bedStart: w?.start, bedEnd: w?.end, bedStartWeekend: pair ? w!.startWeekend : undefined, bedEndWeekend: pair ? w!.endWeekend : undefined, bedOffDate: w ? k.bedOffDate : undefined }
+          : k)));
+        const { error: e } = await sb().rpc('set_bedtime', {
+          p_kid: kidId, p_start: w?.start ?? null, p_end: w?.end ?? null,
+          p_start_weekend: pair ? w!.startWeekend : null, p_end_weekend: pair ? w!.endWeekend : null,
+        });
+        if (e) { setError(`Bedtime didn’t save: ${e.message}`); await load(); }
+      },
+      skipBedtime: async (kidId, skip) => {
+        setKids((cur) => cur.map((k) => (k.id === kidId ? { ...k, bedOffDate: skip ? bedtimeNow(k).evening : undefined } : k)));
+        const { error: e } = await sb().rpc('skip_bedtime', { p_kid: kidId, p_skip: skip });
+        if (e) { setError(`Bedtime change didn’t save: ${e.message}`); await load(); }
       },
       saveChore: async (chore, refMedia) => {
         // Reference photos: keep the paths still listed on the draft, append new uploads, cap at 5.
@@ -550,9 +567,43 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
     const st = store.kidLockState(identity.kidId);
     const kid = kids.find((k) => k.id === identity.kidId);
     const content = kid ? buildShieldContent(kid, chores, instances, criticalTasks, criticalInstances, unlockRequests) : undefined;
-    const sig = JSON.stringify([st, content]);
-    if (sig !== lastApplied.current) { lastApplied.current = sig; void applyLockState(st, content); }
+    // Bedtime hand-off for the monitor extension: the state to restore when tonight's
+    // window closes (computed without bedtime), and whether a grounding/critical lock
+    // currently owns the shield copy so the bedtime start must not repaint it.
+    const extras = kid?.bedStart ? {
+      afterBedtime: {
+        enabled: store.kidLockState(identity.kidId, { ignoreBedtime: true }) === 'locked',
+        ...(buildShieldContent({ ...kid, bedStart: undefined, bedEnd: undefined }, chores, instances, criticalTasks, criticalInstances, unlockRequests) ?? RESET_SHIELD),
+      },
+      bedtimeSuppressed: isGrounded(kid) || criticalLocked(criticalTasks, criticalInstances, kid.id),
+    } : undefined;
+    const sig = JSON.stringify([st, content, extras]);
+    if (sig !== lastApplied.current) { lastApplied.current = sig; void applyLockState(st, content, extras); }
   }, [role, identity.kidId, loading, store, kids, chores, instances, criticalTasks, criticalInstances, unlockRequests]);
+
+  // Keep the native bedtime schedules on the kid device in sync with the kid's window.
+  // Per-slot copy is substituted here (the extension only renders); "stay up tonight"
+  // rides along as the evening to skip.
+  const me = kids.find((k) => k.id === identity.kidId);
+  const bedKey = JSON.stringify([me?.bedStart, me?.bedEnd, me?.bedStartWeekend, me?.bedEndWeekend, me?.bedOffDate, me?.name]);
+  useEffect(() => {
+    if (role !== 'kid' || !Capacitor.isNativePlatform() || loading || !me) return;
+    const slot = (start: string, end: string): BedtimeSlot => {
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      return { startHour: sh, startMinute: sm, endHour: eh, endMinute: em, title: `Goodnight, ${me.name} 🌙`, subtitle: `Screens are back at ${fmtClock(end)}.` };
+    };
+    const on = !!me.bedStart && !!me.bedEnd;
+    void ScreenTime.configureBedtime({
+      enabled: on,
+      weekday: on ? slot(me.bedStart!, me.bedEnd!) : undefined,
+      weekend: on && me.bedStartWeekend && me.bedEndWeekend ? slot(me.bedStartWeekend, me.bedEndWeekend) : undefined,
+      skipEvening: me.bedOffDate,
+      allowRequest: true,
+    }).then((r) => { if (on && r.scheduled === 0) console.warn('[ScreenTime] configureBedtime registered nothing'); })
+      .catch((e) => console.warn('[ScreenTime] configureBedtime failed', e)); // older native build without the method
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, loading, bedKey]);
 
   // Native safety net for critical-task escalation: hand the upcoming lock moments
   // to DeviceActivity so iOS engages the shield on time even when no push arrives
@@ -576,7 +627,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       })
       .filter((l) => l.at > Date.now() + 5_000)
       .sort((a, b) => a.at - b.at)
-      .slice(0, 8) // DeviceActivity caps concurrent monitors; 8 + reset/night/wake stays well under
+      .slice(0, 6) // DeviceActivity caps concurrent monitors; 6 + reset/night/wake + up to 7 bedtime slots stays under 20
       .map((l) => ({ at: Math.floor(l.at / 1000), title: l.title, subtitle: l.subtitle }));
     const sig = JSON.stringify(locks);
     if (sig === lastCriticalLocks.current) return;

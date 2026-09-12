@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { balanceCents, criticalLateMin, criticalsForKid, fmtMoney, hasPass, isGrounded, isMissed, useStore } from '../../lib/store';
+import { balanceCents, bedtimeNow, criticalLateMin, criticalsForKid, fmtClock, fmtMoney, hasPass, isGrounded, isMissed, useStore } from '../../lib/store';
 import WeNeedCard from '../../components/weneed';
 import { Avatar, Icon, KeyGlyph, LockBanner, Ring, StatusChip, todayLabel } from '../../components/ui';
 import { Confetti, FloatPill, PullToRefresh } from '../../components/feedback';
@@ -76,6 +76,7 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
 
   const away = !!kid.absentUntil;
   const empty = state === 'empty' || (away && mine.length === 0);
+  const bt = bedtimeNow(kid);
 
   const QuestCards = (openQuests.length > 0 || myQuests.length > 0) && (
     <>
@@ -182,7 +183,23 @@ export default function KidHome({ state }: { state?: 'loading' | 'error' | 'empt
             </div>
           </div>
         )
-        : <LockBanner state={lock} kidName={kid.name} empty={empty} />}
+        : !state && bt.active && !away
+          ? (
+            <div className="banner" style={{ background: '#3A4390' }}>
+              <span style={{ fontSize: 34 }} aria-hidden>🌙</span>
+              <div>
+                <h2>Goodnight, {kid.name}</h2>
+                <p>Screens are back at {fmtClock(bt.end)}.</p>
+                <p style={{ opacity: .75 }}>Your chores will be waiting in the morning — sleep well.</p>
+              </div>
+            </div>
+          )
+          : <LockBanner state={lock} kidName={kid.name} empty={empty} />}
+      {!state && bt.on && !bt.active && !away && (
+        <span className="chip chip--todo" style={{ alignSelf: 'flex-start' }}>
+          🛏️ {bt.skipped ? 'No bedtime tonight — a parent said you can stay up' : `Bedtime at ${fmtClock(bt.start)} tonight`}
+        </span>
+      )}
 
       {empty ? (
         <>

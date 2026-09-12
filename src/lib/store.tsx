@@ -4,7 +4,7 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
+import type { BedtimeWindow, Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
 import { applyLockState, type ShieldContent } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -47,6 +47,63 @@ export const balanceCents = (ledger: MoneyEntry[], kidId: string) =>
 /** "$12.50" (negative-safe). */
 export const fmtMoney = (cents: number) => `${cents < 0 ? '-' : ''}$${(Math.abs(cents) / 100).toFixed(2)}`;
 
+/** "HH:MM" → "9:30 PM" in the device locale. */
+export const fmtClock = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+};
+
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const minsOf = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+
+/** The bedtime window that applies to an evening: Fri & Sat nights use the weekend pair when set. */
+export const bedtimeWindow = (k: Kid, evening: Date): { start: string; end: string } | null => {
+  if (!k.bedStart || !k.bedEnd) return null;
+  const dow = evening.getDay();
+  const weekend = (dow === 5 || dow === 6) && !!k.bedStartWeekend && !!k.bedEndWeekend;
+  return weekend ? { start: k.bedStartWeekend!, end: k.bedEndWeekend! } : { start: k.bedStart, end: k.bedEnd };
+};
+
+export interface BedtimeStatus {
+  on: boolean; // the kid has a bedtime configured
+  active: boolean; // inside a window right now and not skipped → locked
+  skipped: boolean; // a parent said "stay up" for the relevant evening
+  evening: string; // YYYY-MM-DD of the relevant evening (the running one, else tonight)
+  start: string; // that evening's window, "HH:MM"
+  end: string;
+  endsAt?: Date; // when the running window closes
+}
+
+/**
+ * Bedtime status right now — mirrors the server's bedtime_evening(): a window that
+ * crosses midnight belongs to the evening it started on, so "now" is checked against
+ * both last night's and tonight's windows. Outside any window, `evening` is tonight
+ * (for "bedtime at 9:00 PM" lines and the stay-up toggle).
+ */
+export function bedtimeNow(k: Kid | undefined, now = new Date()): BedtimeStatus {
+  const off: BedtimeStatus = { on: false, active: false, skipped: false, evening: localDate(now), start: '', end: '' };
+  if (!k?.bedStart || !k.bedEnd) return off;
+  const t = now.getHours() * 60 + now.getMinutes();
+  const todayNoon = new Date(now); todayNoon.setHours(12, 0, 0, 0); // noon-anchored so day shifts survive DST
+  const yestNoon = new Date(todayNoon); yestNoon.setDate(yestNoon.getDate() - 1);
+  for (const ev of [yestNoon, todayNoon]) {
+    const w = bedtimeWindow(k, ev)!;
+    const s = minsOf(w.start), e = minsOf(w.end);
+    const crosses = s > e;
+    const isYesterday = ev === yestNoon;
+    const inWindow = crosses ? (isYesterday ? t < e : t >= s) : (!isYesterday && t >= s && t < e);
+    if (!inWindow) continue;
+    const evening = localDate(ev);
+    const endsAt = new Date(now); endsAt.setHours(Math.floor(e / 60), e % 60, 0, 0);
+    if (crosses && !isYesterday) endsAt.setDate(endsAt.getDate() + 1);
+    const skipped = k.bedOffDate === evening;
+    return { on: true, active: !skipped, skipped, evening, start: w.start, end: w.end, endsAt };
+  }
+  const tonight = bedtimeWindow(k, todayNoon)!;
+  const evening = localDate(todayNoon);
+  return { on: true, active: false, skipped: k.bedOffDate === evening, evening, start: tonight.start, end: tonight.end };
+}
+
 const cap34 = (s: string) => (s.length > 34 ? `${s.slice(0, 33)}…` : s);
 
 /**
@@ -79,12 +136,21 @@ export function buildShieldContent(
       subtitle: `${Math.max(1, Math.floor(crit.late))} minutes late. Nothing unlocks until this one’s done.`,
     };
   }
-  const remaining = instances.filter((i) => i.kidId === kid.id && i.status !== 'approved' && chores.find((c) => c.id === i.choreId)?.required);
-  const nextInst = remaining.find((i) => i.status === 'todo' || i.status === 'rejected') ?? remaining[0];
-  const next = cap34(chores.find((c) => c.id === nextInst?.choreId)?.name ?? 'your chores');
   const deniedRecently = unlockRequests.some((r) =>
     r.kidId === kid.id && r.kind === 'fifteen' && r.status === 'denied'
     && !!r.resolvedAt && Date.now() - new Date(r.resolvedAt).getTime() < 3600_000);
+  const bt = bedtimeNow(kid);
+  if (bt.active) {
+    return {
+      state: 'bedtime',
+      title: `Goodnight, ${kid.name} 🌙`,
+      subtitle: `Screens are back at ${fmtClock(bt.end)}.`,
+      allowRequest: !deniedRecently,
+    };
+  }
+  const remaining = instances.filter((i) => i.kidId === kid.id && i.status !== 'approved' && chores.find((c) => c.id === i.choreId)?.required);
+  const nextInst = remaining.find((i) => i.status === 'todo' || i.status === 'rejected') ?? remaining[0];
+  const next = cap34(chores.find((c) => c.id === nextInst?.choreId)?.name ?? 'your chores');
   return {
     state: 'chores',
     title: `${remaining.length || 1} to go, ${kid.name} 🔑`,
@@ -130,7 +196,7 @@ export const groupTurnKid = (g: ChoreGroup, kids: Kid[]): string | undefined => 
 const KIDS: Kid[] = [
   { id: 'k1', name: 'Tenleigh', age: 15, avatarColor: '#0D9488', lockState: 'unlocked', streakDays: 12, points: 25, override: null },
   { id: 'k2', name: 'Taegyn', age: 13, avatarColor: '#B45309', lockState: 'locked', streakDays: 3, points: 10, override: null },
-  { id: 'k3', name: 'Dawson', age: 9, avatarColor: '#5B5BD6', lockState: 'locked', streakDays: 5, points: 40, override: null },
+  { id: 'k3', name: 'Dawson', age: 9, avatarColor: '#5B5BD6', lockState: 'locked', streakDays: 5, points: 40, override: null, bedStart: '20:30', bedEnd: '06:30', bedStartWeekend: '21:30', bedEndWeekend: '07:30' },
 ];
 
 const CHORES: Chore[] = [
@@ -200,7 +266,8 @@ export interface Store {
   parents: FamilyParent[];
   rewards: Reward[]; rewardClaims: RewardClaim[];
   // derived
-  kidLockState: (kidId: string) => LockState;
+  /** ignoreBedtime = the state the shield should fall back to once tonight's window closes. */
+  kidLockState: (kidId: string, opts?: { ignoreBedtime?: boolean }) => LockState;
   requiredProgress: (kidId: string) => { done: number; total: number };
   pendingCount: number;
   // actions
@@ -214,6 +281,10 @@ export interface Store {
   setAbsent: (kidId: string, until: string | null) => void;
   /** Ground (until ISO timestamp + reason) or lift (null). Grounding trumps everything. */
   setGrounding: (kidId: string, until: string | null, reason?: string) => void;
+  /** Set (or clear with null) a kid's nightly bedtime lock window. */
+  setBedtime: (kidId: string, window: BedtimeWindow | null) => void;
+  /** "Stay up tonight" (true) / bedtime back on (false) for the relevant evening. */
+  skipBedtime: (kidId: string, skip: boolean) => void;
   /** Call kids to a location — repeated pushes until each one acknowledges. */
   callKids: (kidIds: string[], location: string, note?: string, meeting?: boolean) => void;
   ackSummon: (id: string) => void;
@@ -286,12 +357,13 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       const req = instances.filter((i) => i.kidId === kidId && chores.find((c) => c.id === i.choreId)?.required);
       return { done: req.filter((i) => i.status === 'approved').length, total: req.length };
     };
-    const kidLockState = (kidId: string): LockState => {
+    const kidLockState = (kidId: string, opts?: { ignoreBedtime?: boolean }): LockState => {
       const kid = kids.find((k) => k.id === kidId);
       if (isGrounded(kid)) return 'locked';
       if (kid?.absentUntil && kid.absentUntil >= today()) return 'unlocked';
       if (criticalLocked(criticalTasks, criticalInstances, kidId)) return 'locked';
       if (hasPass(kid)) return 'unlocked';
+      if (!opts?.ignoreBedtime && bedtimeNow(kid).active) return 'locked';
       if (kid?.override === 'unlock') return 'unlocked';
       if (kid?.override === 'lock') return 'locked';
       return instances.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId))) ? 'locked' : 'unlocked';
@@ -300,7 +372,7 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       // Recompute and push to the native shield (no-op on web).
       const kid = nextKids.find((k) => k.id === kidId)!;
       const blocked = next.some((i) => i.kidId === kidId && blocksNow(i, chores.find((c) => c.id === i.choreId)));
-      const state: LockState = isGrounded(kid) ? 'locked' : kid.override === 'unlock' ? 'unlocked' : kid.override === 'lock' ? 'locked' : blocked ? 'locked' : 'unlocked';
+      const state: LockState = isGrounded(kid) ? 'locked' : bedtimeNow(kid).active ? 'locked' : kid.override === 'unlock' ? 'unlocked' : kid.override === 'lock' ? 'locked' : blocked ? 'locked' : 'unlocked';
       if (kidId === currentKidId) void applyLockState(state);
       setDevices((ds) => ds.map((dv) => (dv.kidId === kidId ? { ...dv, blocked: state === 'locked' } : dv)));
     };
@@ -392,6 +464,20 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       setGrounding: (kidId, until, reason) =>
         setKids((cur) => {
           const next = cur.map((k) => (k.id === kidId ? { ...k, groundedUntil: until ?? undefined, groundedReason: until ? reason : undefined } : k));
+          sync(kidId, instances, next);
+          return next;
+        }),
+      setBedtime: (kidId, w) =>
+        setKids((cur) => {
+          const next = cur.map((k) => (k.id === kidId
+            ? { ...k, bedStart: w?.start, bedEnd: w?.end, bedStartWeekend: w?.startWeekend && w.endWeekend ? w.startWeekend : undefined, bedEndWeekend: w?.startWeekend && w.endWeekend ? w.endWeekend : undefined, bedOffDate: w ? k.bedOffDate : undefined }
+            : k));
+          sync(kidId, instances, next);
+          return next;
+        }),
+      skipBedtime: (kidId, skip) =>
+        setKids((cur) => {
+          const next = cur.map((k) => (k.id === kidId ? { ...k, bedOffDate: skip ? bedtimeNow(k).evening : undefined } : k));
           sync(kidId, instances, next);
           return next;
         }),

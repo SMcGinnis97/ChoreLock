@@ -20,7 +20,20 @@ export interface Kid {
   groundedUntil?: string; // ISO timestamp; set + future = grounded (locked no matter what)
   groundedReason?: string; // shown to the kid (banner + push)
   unlockUntil?: string; // ISO; a granted 15-minute pass — unlocked until then (never beats grounding/criticals)
+  bedStart?: string; // "HH:MM" school-night bedtime window start (unset = no bedtime lock)
+  bedEnd?: string; // "HH:MM" morning end of the window
+  bedStartWeekend?: string; // Fri & Sat nights, when different (set as a pair with bedEndWeekend)
+  bedEndWeekend?: string;
+  bedOffDate?: string; // YYYY-MM-DD evening a parent skipped ("stay up tonight")
   joinCode?: string; // shown to parent for enrolling kid devices
+}
+
+/** A bedtime window as a parent sets it; null clears bedtime. */
+export interface BedtimeWindow {
+  start: string; // "HH:MM"
+  end: string;
+  startWeekend?: string;
+  endWeekend?: string;
 }
 
 /** A shield-button ask: "Ask for 15 minutes" (pending → granted/denied) or an "I'm on it" ping. */
