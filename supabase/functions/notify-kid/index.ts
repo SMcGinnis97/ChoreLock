@@ -16,6 +16,9 @@
 //   critical     -> time-sensitive alert for critical-task fires and escalations ("chore" = task title,
 //                   "reason" = escalation message). Sent by private.run_criticals.
 //   quest        -> generic title/body pass-through (quest claim timers, chore hand-offs).
+// Parent mode (private.notify_parents): { parent_ids: string[], kind: 'parent', category, chore: title,
+//   reason: body, route: '/parent/...', urgent?: boolean } -> plain alert to parent_devices tokens,
+//   thread-id = category, no `lock` payload. Handled first, before any kid logic.
 //
 // Secrets (supabase secrets set ...): APNS_KEY (p8 contents), APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID (app.chorelock),
 // APNS_ENV ('sandbox' | 'production') — the env tried FIRST; the other is a per-token fallback.
@@ -80,10 +83,33 @@ Deno.serve(async (req) => {
   let role = '';
   try { role = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role; } catch { /* fallthrough */ }
   if (role !== 'service_role') return new Response('unauthorized', { status: 401 });
-  const { kid_ids, kind, chore, reason, sender } = await req.json();
-  if (!Array.isArray(kid_ids) || kid_ids.length === 0) return Response.json({ sent: 0 });
-
+  const { kid_ids, kind, chore, reason, sender, parent_ids, category, route, urgent } = await req.json();
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+  // Parent notifications (private.notify_parents): plain alerts to parent installs.
+  // No `lock` payload, so PushLock in the app/NSE is a no-op on these devices. `route`
+  // is the parent-app path the tap opens; `category` doubles as the thread id so asks,
+  // approvals and co-parent actions group separately in Notification Center.
+  if (Array.isArray(parent_ids) && parent_ids.length > 0) {
+    const { data: pdevs } = await sb.from('parent_devices').select('user_id, identifier, push_token').in('user_id', parent_ids).not('push_token', 'is', null);
+    const payload = {
+      aps: {
+        alert: { title: chore ?? 'ChoreKey', body: reason ?? undefined },
+        sound: 'default',
+        'thread-id': category ?? 'parent',
+        ...(urgent && { 'interruption-level': 'time-sensitive' }),
+      },
+      kind: 'parent', category, route: route ?? '/parent',
+    };
+    const results = await Promise.all((pdevs ?? []).map(async (d) => {
+      const r = await send(d.push_token!, payload, false);
+      if (isTokenError(r)) await sb.from('parent_devices').update({ push_token: null }).eq('user_id', d.user_id).eq('identifier', d.identifier);
+      return r.status;
+    }));
+    return Response.json({ sent: results.filter((s) => s === 200).length, total: results.length });
+  }
+
+  if (!Array.isArray(kid_ids) || kid_ids.length === 0) return Response.json({ sent: 0 });
   // Every push carries the kid's current lock state + shield copy (kid_shield) so the
   // device applies the shield natively on arrival — the notification service extension
   // for visible pushes, the app delegate for silent ones — instead of waiting for the

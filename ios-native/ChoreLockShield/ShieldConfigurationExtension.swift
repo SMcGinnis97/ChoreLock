@@ -85,9 +85,11 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             )
 
         case .bedtime:
+            // Clearly indigo, not another near-black: field test 2026-09-12 read the
+            // grounded (slate) and bedtime (0x1B2049) shields as the same screen.
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemThickMaterialDark,
-                backgroundColor: UIColor(hex: 0x1B2049, alpha: 0.97),
+                backgroundColor: UIColor(hex: 0x3730A3, alpha: 0.97),
                 icon: UIImage(named: "shield-bedtime"),
                 title: .init(text: title, color: .white),
                 subtitle: .init(text: subtitle, color: UIColor(hex: 0xE4E7FF)),

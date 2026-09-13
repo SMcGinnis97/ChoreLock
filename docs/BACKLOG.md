@@ -62,3 +62,40 @@ ChoreLockMonitor extension already uses for the daily reset and night watch:
   emergency family recall) — the plain "chore reminder" framing will not qualify.
 - Until then summons/critical pushes play at normal notification volume and respect the
   silent switch; APNS_CRITICAL stays unset.
+
+## Parent notifications — BUILT 2026-09-12 (migration 0029, notify-kid parent mode)
+
+Shipped: `parent_devices` tokens, `family_events` feed (Insights → Family activity, realtime),
+`private.notify_parents()` with actor exclusion + per-parent category prefs (Settings →
+🔔 Notifications), triggers on chore_instances / side_quests / reward_claims /
+unlock_requests / summons / kids / critical_instances / list_items, tap-to-route via the
+`chorekey:route` window event in ParentShell.
+
+Follow-ups not yet done:
+- Device-verify on a parent iPhone: permission prompt on first parent open, token lands in
+  `parent_devices`, a kid "Ask for 15" push arrives time-sensitive and opens Today, an
+  approval by one parent reaches the other (and NOT the approver).
+- Badge count on the app icon = pending approvals (needs `aps.badge` on parent pushes +
+  a clear on open). Not wired.
+- Quiet hours for parent pushes (e.g. mute 'approvals' overnight) — prefs are per category
+  only today.
+- Summons cancel / expiry are silent to co-parents (only the call and the kid's reply notify).
+- `handoff_today` (away hand-off) and allowance payouts do not notify co-parents yet.
+- Web (non-native) parents get the feed but no pushes; Web Push would need a VAPID path.
+
+## Open todos (as of 2026-09-12, after the parent-notification round)
+
+1. TestFlight build #23 from this commit, then device tests: parent pushes (above), bedtime
+   shield now indigo vs grounded slate, bedtime hand-off keys written by push
+   (`bedtimeSuppressed` / `bedtimeAfter` in the app group), "See my chores" notification
+   from the shield button, post-midnight refresh without force-quit (build #22 fix).
+2. Dawson's bedtime is currently 23:00–23:01 in the DB (1-minute test window — locks via
+   push, never registers natively). Set a real window (≥15 min) from Settings; the server
+   now rejects short windows too.
+3. App Store Connect listing (screenshots, description, privacy, support URL, TestFlight
+   Test Information) — prerequisite for any Critical Alerts re-request.
+4. AdGuard Home DNS enforcement for TVs/consoles — deployment on the home LAN unverified.
+5. On-device DeviceActivityReport usage extension (new target + bundle id).
+6. Rotate the dev cert private key and APNs/SIWA .p8 keys that were pasted in chats.
+7. Dashboard "device last synced" indicator (parked idea).
+8. Roadmap after this: calendar (absence integration) → messaging-lite → presence.

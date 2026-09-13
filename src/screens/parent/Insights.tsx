@@ -91,8 +91,30 @@ export default function Insights() {
         <button className={period === 'month' ? 'active' : ''} onClick={() => setPeriod('month')}>This month</button>
       </div>
 
-      {(() => {
-        // Co-parent visibility: today's reviews and grants, attributed by parent.
+      {s.events.length > 0 && (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="section-label" style={{ margin: 0 }}>Family activity · last 48h</div>
+          {s.events.slice(0, 25).map((e) => {
+            const mine = !!e.actor && s.parents.some((p) => p.userId === e.actor && p.isMe);
+            const d = new Date(e.at);
+            const today = d.toDateString() === new Date().toDateString();
+            return (
+              <div key={e.id} className="row" style={{ alignItems: 'baseline', gap: 8 }}>
+                <span aria-hidden>{e.emoji ?? '•'}</span>
+                <div className="spacer">
+                  <span style={{ fontWeight: 700 }}>{mine ? e.title.replace(/^\S+ /, 'You ') : e.title}</span>
+                  {e.body && <span className="kid-sub"> · {e.body}</span>}
+                </div>
+                <span className="kid-sub" style={{ whiteSpace: 'nowrap' }}>{today ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {s.events.length === 0 && (() => {
+        // Co-parent visibility (fallback before any event has been logged): today's reviews
+        // and grants, attributed by parent.
         const pname = (uid?: string) => {
           const p = s.parents.find((x) => x.userId === uid);
           return p ? (p.isMe ? 'You' : (p.name ?? p.email ?? 'A parent')) : 'A parent';

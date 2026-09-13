@@ -198,11 +198,29 @@ export interface CriticalInstance {
   doneBy?: string; // kid id; unset = a parent marked it done
 }
 
+/** Parent push categories — a missing key means on. Mirrors private.notify_parents' p_kind. */
+export type NotifyKind = 'approvals' | 'requests' | 'coparent' | 'critical' | 'lists';
+export type NotifyPrefs = Partial<Record<NotifyKind, boolean>>;
+
 export interface FamilyParent {
   userId: string;
   name?: string;
   email?: string;
   isMe: boolean;
+  notifyPrefs?: NotifyPrefs;
+}
+
+/** One line of the family activity feed (family_events) — what a parent push said. */
+export interface FamilyEvent {
+  id: string;
+  kidId?: string;
+  actor?: string; // parent user id; unset = a kid or the system
+  kind: NotifyKind;
+  emoji?: string;
+  title: string;
+  body?: string;
+  route?: string;
+  at: string; // ISO
 }
 
 export interface Device {

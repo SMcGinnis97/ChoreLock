@@ -1,10 +1,19 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store';
 import { Icon, ParentTabs, Wordmark } from '../../components/ui';
+import { ROUTE_EVENT } from '../../native/push';
 
 export default function ParentShell() {
   const s = useStore();
+  const nav = useNavigate();
   const routerOk = s.settings.routerStatus === 'connected';
+  // Tapping a parent push lands on the screen it is about (Approvals for proof, Today for asks).
+  useEffect(() => {
+    const onRoute = (e: Event) => { const r = (e as CustomEvent<string>).detail; if (r?.startsWith('/parent')) nav(r); };
+    window.addEventListener(ROUTE_EVENT, onRoute);
+    return () => window.removeEventListener(ROUTE_EVENT, onRoute);
+  }, [nav]);
   return (
     <div className="parent-shell">
       <aside className="sidebar">

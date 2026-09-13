@@ -4,7 +4,7 @@
  * src/lib/supabase.ts once the project is created — the shape is identical.
  */
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { BedtimeWindow, Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
+import type { BedtimeWindow, Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyEvent, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, NotifyPrefs, ProofBundle, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
 import { applyLockState, type ShieldContent } from '../native/screenTime';
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -268,6 +268,10 @@ export interface Store {
   unlockRequests: UnlockRequest[];
   listItems: ListItem[]; moneyLedger: MoneyEntry[]; nightEvents: NightEvent[];
   parents: FamilyParent[];
+  /** Family activity feed (parents only; newest first). */
+  events: FamilyEvent[];
+  /** Mute/unmute push categories for the signed-in parent. */
+  setNotifyPrefs?: (prefs: NotifyPrefs) => void;
   rewards: Reward[]; rewardClaims: RewardClaim[];
   // derived
   /** ignoreBedtime = the state the shield should fall back to once tonight's window closes. */
@@ -394,6 +398,11 @@ export function MockStoreProvider({ children }: { children: ReactNode }) {
       criticalTasks, criticalInstances, unlockRequests,
       listItems, moneyLedger, nightEvents: [],
       parents: [{ userId: 'p1', name: 'Sage', email: 'parent@example.com', isMe: true }],
+      events: [
+        { id: 'e1', kidId: 'k3', kind: 'requests', emoji: '🙏', title: 'Dawson is asking for 15 minutes', body: 'From the lock screen. Tap to answer.', at: new Date(Date.now() - 4 * 60_000).toISOString() },
+        { id: 'e2', kidId: 'k1', kind: 'approvals', emoji: '📸', title: 'Tenleigh submitted Dishes', body: 'Tap to review the proof.', at: new Date(Date.now() - 38 * 60_000).toISOString() },
+        { id: 'e3', kidId: 'k2', actor: 'p2', kind: 'coparent', emoji: '⛔', title: 'Dana grounded Taegyn until Sat 6:00 PM', body: 'Lied about homework', at: new Date(Date.now() - 2 * 3600_000).toISOString() },
+      ],
       rewards, rewardClaims,
       kidLockState, requiredProgress,
       pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length + rewardClaims.filter((c) => c.status === 'requested').length,

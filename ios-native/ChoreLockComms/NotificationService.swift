@@ -80,6 +80,17 @@ enum PushLock {
             if let v = s["subtitle"] as? String { defaults.set(v, forKey: "shieldSubtitle") }
             if let v = s["allowRequest"] as? Bool { defaults.set(v, forKey: "shieldAllowRequest") }
         }
+        // Bedtime hand-off keys for the monitor extension — mirrors AppDelegate.PushLock.
+        if let sup = lock["bedtimeSuppressed"] as? Bool { defaults.set(sup, forKey: "bedtimeSuppressed") }
+        if let after = lock["after"] as? [String: Any] {
+            defaults.set([
+                "enabled": (after["enabled"] as? Bool) ?? false,
+                "state": (after["state"] as? String) ?? "chores",
+                "title": (after["title"] as? String) ?? "Chores first 🔑",
+                "subtitle": (after["subtitle"] as? String) ?? "Open ChoreKey to snap your proof.",
+                "allowRequest": (after["allowRequest"] as? Bool) ?? true,
+            ] as [String: Any], forKey: "bedtimeAfter")
+        }
         let store = ManagedSettingsStore(named: .init("chorelock"))
         if state == "locked" {
             guard let data = defaults.data(forKey: "blockedSelection"),

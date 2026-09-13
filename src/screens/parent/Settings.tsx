@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { balanceCents, fmtClock, fmtMoney, useStore } from '../../lib/store';
 import { Avatar, Icon, Switch } from '../../components/ui';
-import type { BedtimeWindow, Device, Kid } from '../../lib/types';
+import type { BedtimeWindow, Device, Kid, NotifyKind } from '../../lib/types';
 import { fmtTime } from './Dashboard';
 
 export default function Settings() {
@@ -155,6 +155,34 @@ export default function Settings() {
         })}
       </div>
       <p className="hint" style={{ textAlign: 'left' }}>Side quests can also pay money instead of points — pick 💵 when you drop one. “Settle up” shows everything earned since the last payout and records the hand-over of real cash.</p>
+
+      {s.setNotifyPrefs && (() => {
+        const me = s.parents.find((p) => p.isMe);
+        const prefs = me?.notifyPrefs ?? {};
+        const on = (k: NotifyKind) => prefs[k] !== false;
+        const rows: { kind: NotifyKind; emoji: string; title: string; sub: string }[] = [
+          { kind: 'requests', emoji: '🙏', title: 'Kid requests', sub: '“Ask for 15 minutes”, “doing it now”, on-my-way replies' },
+          { kind: 'approvals', emoji: '📸', title: 'Proof & progress', sub: 'Submitted chores, quests, reward cash-ins, all-done-for-today' },
+          { kind: 'coparent', emoji: '👥', title: 'Other parents’ actions', sub: 'Approvals, groundings, unlocks, bedtime changes, calls' },
+          { kind: 'critical', emoji: '🚨', title: 'Critical tasks', sub: 'Fires, internet-off escalations, and completions' },
+          { kind: 'lists', emoji: '🛒', title: '“We need” list', sub: 'New items anyone adds' },
+        ];
+        return (
+          <>
+            <div className="section-label">🔔 Notifications</div>
+            <div className="group">
+              {rows.map((r) => (
+                <div key={r.kind} className="group-row">
+                  <span style={{ fontSize: 22 }} aria-hidden>{r.emoji}</span>
+                  <div className="spacer"><div className="title">{r.title}</div><div className="sub">{r.sub}</div></div>
+                  <Switch on={on(r.kind)} onChange={(v) => s.setNotifyPrefs!({ ...prefs, [r.kind]: v })} />
+                </div>
+              ))}
+            </div>
+            <p className="hint" style={{ textAlign: 'left' }}>Pushes go to every phone you’re signed in on. You never get a notification for something you did yourself; the other parents do. Everything also lands in Insights → Family activity.</p>
+          </>
+        );
+      })()}
 
       <div className="section-label">🛏️ Bedtime</div>
       <div className="group">

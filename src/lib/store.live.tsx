@@ -8,10 +8,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { bedtimeNow, blocksNow, buildShieldContent, criticalLocked, fmtClock, hasPass, isGrounded, Ctx, type CriticalDraft, type QuestDraft, type Role, type Store } from './store';
-import type { Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
+import type { Chore, ChoreGroup, ChoreInstance, CriticalInstance, CriticalTask, Device, FamilyEvent, FamilyParent, Kid, ListItem, LockState, MoneyEntry, NightEvent, NotifyPrefs, ProofMedia, Reward, RewardClaim, Settings, SideQuest, Summon, UnlockRequest } from './types';
 import { applyLockState, RESET_SHIELD, type BedtimeSlot } from '../native/screenTime';
 import { Capacitor } from '@capacitor/core';
-import { installId, setupPush } from '../native/push';
+import { installId, setupParentPush, setupPush } from '../native/push';
 import ScreenTime from '../native/screenTime';
 
 const sb = () => supabase!;
@@ -77,6 +77,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
   const [quests, setQuests] = useState<SideQuest[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [parents, setParents] = useState<FamilyParent[]>([]);
+  const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [rewardClaims, setRewardClaims] = useState<RewardClaim[]>([]);
   const [settings, setSettings] = useState<Settings>({ resetTime: '00:00', autoApprove: false, routerStatus: 'none' });
@@ -112,7 +113,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       const ensured = await Promise.all((kidRows ?? []).map((k) => sb().rpc('ensure_today', { p_kid: k.id })));
       const serverToday = ensured.map((r) => r.data as string | null).find((d): d is string => !!d);
 
-      const [fam, invite, pars, rw, rc, ch, asg, grp, gk, inst, qs, dev, pts, streaks, smn, ctk, cin, ur, li, ml, ne] = await Promise.all([
+      const [fam, invite, pars, rw, rc, ch, asg, grp, gk, inst, qs, dev, pts, streaks, smn, ctk, cin, ur, li, ml, ne, fe] = await Promise.all([
         sb().from('families').select('*').single(),
         role === 'parent' ? sb().from('parent_invites').select('code').maybeSingle() : Promise.resolve({ data: null }),
         role === 'parent' ? sb().from('family_parents').select('*') : Promise.resolve({ data: [] }),
@@ -134,6 +135,9 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         sb().from('list_items').select('*').or(`done_at.is.null,done_at.gte.${new Date(Date.now() - 24 * 3600_000).toISOString()}`).order('created_at', { ascending: false }),
         sb().from('money_ledger').select('*').order('created_at', { ascending: false }),
         sb().from('night_events').select('*').gte('at', new Date(Date.now() - 7 * 24 * 3600_000).toISOString()).order('at', { ascending: false }),
+        role === 'parent'
+          ? sb().from('family_events').select('*').gte('created_at', new Date(Date.now() - 48 * 3600_000).toISOString()).order('created_at', { ascending: false }).limit(60)
+          : Promise.resolve({ data: [] as Record<string, unknown>[] }),
       ]);
       const streakMap = Object.fromEntries(streaks);
       const pointsMap = Object.fromEntries((pts.data ?? []).map((p) => [p.kid_id, p.points]));
@@ -185,7 +189,12 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
         reviewedBy: q.reviewed_by ?? undefined, reviewedAt: q.reviewed_at ?? undefined,
       }))));
       setDevices((dev.data ?? []).map((d) => ({ id: d.id, kidId: d.kid_id, name: d.name, platform: d.platform, identifier: d.identifier, lastSeen: d.last_seen ?? undefined, blocked: false, override: d.override ?? null, scheduleStart: d.schedule_start ? d.schedule_start.slice(0, 5) : undefined, scheduleEnd: d.schedule_end ? d.schedule_end.slice(0, 5) : undefined })));
-      setParents((pars.data ?? []).map((p: { user_id: string; display_name: string | null; email: string | null }) => ({ userId: p.user_id, name: p.display_name ?? undefined, email: p.email ?? undefined, isMe: p.user_id === identity.session?.user.id })));
+      setParents((pars.data ?? []).map((p: { user_id: string; display_name: string | null; email: string | null; notify_prefs?: NotifyPrefs | null }) => ({ userId: p.user_id, name: p.display_name ?? undefined, email: p.email ?? undefined, isMe: p.user_id === identity.session?.user.id, notifyPrefs: p.notify_prefs ?? {} })));
+      setEvents(((fe.data ?? []) as Record<string, unknown>[]).map((e) => ({
+        id: e.id as string, kidId: (e.kid_id as string | null) ?? undefined, actor: (e.actor as string | null) ?? undefined,
+        kind: e.kind as FamilyEvent['kind'], emoji: (e.emoji as string | null) ?? undefined, title: e.title as string,
+        body: (e.body as string | null) ?? undefined, route: (e.route as string | null) ?? undefined, at: e.created_at as string,
+      })));
       setSummons((smn.data ?? []).map((x) => ({
         id: x.id, kidId: x.kid_id, location: x.location, note: x.note ?? undefined, meeting: x.meeting,
         createdAt: x.created_at, expiresAt: x.expires_at, acknowledgedAt: x.acknowledged_at ?? undefined, canceledAt: x.canceled_at ?? undefined,
@@ -243,6 +252,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       .on('postgres_changes', { event: '*', schema: 'public', table: 'unlock_requests' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'list_items' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'money_ledger' }, () => void load())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'family_events' }, () => void load())
       .subscribe();
     const off = onForeground(() => {
       void (async () => {
@@ -266,6 +276,12 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       await setupPush(identity.kidId!, () => void load());
     })();
   }, [role, identity.kidId, load]);
+  // Parents: register this install for parent pushes (asks, proof to review, co-parent actions).
+  useEffect(() => {
+    const uid = identity.session?.user.id;
+    if (role !== 'parent' || !uid || !Capacitor.isNativePlatform()) return;
+    void setupParentPush(uid, () => void load()).catch((e) => console.warn('[push] parent setup failed', e));
+  }, [role, identity.session?.user.id, load]);
   useEffect(() => {
     if (role !== 'kid' || !Capacitor.isNativePlatform() || loading) return;
     const [h, m] = settings.resetTime.split(':').map(Number);
@@ -333,7 +349,13 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
 
     return {
       role, setRole: () => {}, currentKidId, setCurrentKidId,
-      kids, chores, groups, instances, quests, devices: devicesWithState, settings, parents, rewards, rewardClaims, summons, loading, error,
+      kids, chores, groups, instances, quests, devices: devicesWithState, settings, parents, events, rewards, rewardClaims, summons, loading, error,
+      setNotifyPrefs: async (prefs) => {
+        const uid = identity.session?.user.id;
+        setParents((cur) => cur.map((p) => (p.userId === uid ? { ...p, notifyPrefs: prefs } : p)));
+        const { error: e } = await sb().rpc('set_notify_prefs', { p_prefs: prefs });
+        if (e) setError(e.message);
+      },
       criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger, nightEvents,
       kidLockState, requiredProgress,
       pendingCount: instances.filter((i) => i.status === 'submitted').length + quests.filter((q) => q.status === 'submitted').length + rewardClaims.filter((c) => c.status === 'requested').length,
@@ -623,7 +645,7 @@ export function LiveStoreProvider({ identity, children }: { identity: Identity; 
       reload: load,
       lastSync,
     };
-  }, [role, currentKidId, kids, chores, groups, instances, quests, devices, settings, parents, rewards, rewardClaims, summons, criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger, nightEvents, loading, lastSync, error, identity, load, uploadProof, tick]);
+  }, [role, currentKidId, kids, chores, groups, instances, quests, devices, settings, parents, events, rewards, rewardClaims, summons, criticalTasks, criticalInstances, unlockRequests, listItems, moneyLedger, nightEvents, loading, lastSync, error, identity, load, uploadProof, tick]);
 
   // Push lock state + per-state shield content to the native shield whenever either
   // changes (kid devices only). Content changes while still locked (a chore approved,
