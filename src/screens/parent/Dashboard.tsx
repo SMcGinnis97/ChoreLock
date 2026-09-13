@@ -148,9 +148,11 @@ export default function Dashboard() {
               </button>
               {grounded && k.groundedReason && <div className="quote" style={{ padding: '8px 12px' }}>“{k.groundedReason}”</div>}
               <div className="progress"><div className={full ? 'full' : ''} style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} /></div>
-              <div className="row row--between">
+              {/* Wraps: on a phone (or a 3-up iPad column) the three buttons don't fit beside the
+                  status text, and used to run off the card's right edge. */}
+              <div className="row row--between" style={{ flexWrap: 'wrap', rowGap: 8 }}>
                 {pend ? <Link to="/parent/approvals" className="pending">① {pend} pending review</Link> : <span className="quiet">Nothing pending</span>}
-                <div className="row" style={{ gap: 8 }}>
+                <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto' }}>
                   {grounded
                     ? <button className="btn btn--outline-ok" onClick={() => s.setGrounding(k.id, null)}>Lift grounding</button>
                     : <>
@@ -272,7 +274,7 @@ function KidDaySheet({ kid, onClose }: { kid: Kid; onClose: () => void }) {
   const quests = s.quests.filter((q) => q.status !== 'approved' && (q.kidId === kid.id || (q.kidId === null && q.status === 'open')));
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="handle" />
         <h2 style={{ fontSize: 22 }}>{kid.name}’s day</h2>
         <p style={{ margin: '-8px 0 0', fontWeight: 600, color: 'var(--ink-2)' }}>Mark things done by hand, change a due time for today, or push a chore to tomorrow.</p>

@@ -198,11 +198,13 @@ export default function Settings() {
         </div>
         {!!s.settings.nightStart && (
           <>
-            <div className="group-row">
+            <div className="group-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
               <span className="sub">Quiet hours</span>
-              <input className="field" type="time" style={{ padding: 8 }} value={s.settings.nightStart} onChange={(e) => s.updateSettings({ nightStart: e.target.value || '22:00' })} />
-              <span className="sub">to</span>
-              <input className="field" type="time" style={{ padding: 8 }} value={s.settings.nightEnd ?? '06:00'} onChange={(e) => s.updateSettings({ nightEnd: e.target.value || '06:00' })} />
+              <div className="row" style={{ gap: 8 }}>
+                <input className="field" type="time" style={{ padding: 8, flex: 1, minWidth: 0 }} value={s.settings.nightStart} onChange={(e) => s.updateSettings({ nightStart: e.target.value || '22:00' })} />
+                <span className="sub">to</span>
+                <input className="field" type="time" style={{ padding: 8, flex: 1, minWidth: 0 }} value={s.settings.nightEnd ?? '06:00'} onChange={(e) => s.updateSettings({ nightEnd: e.target.value || '06:00' })} />
+              </div>
             </div>
             <div className="group-row">
               <span className="sub">Flag after</span>
@@ -337,24 +339,30 @@ function BedtimeRow({ kid: k }: { kid: Kid }) {
       </div>
       {on && (
         <>
-          <div className="row" style={{ gap: 8 }}>
-            <span className="sub" style={{ flexShrink: 0, width: 92 }}>School nights</span>
-            <input className="field" type="time" style={{ padding: 8 }} value={cur.start} onChange={(e) => e.target.value && edit({ start: e.target.value })} onBlur={() => draft && commit(draft)} />
-            <span className="sub">to</span>
-            <input className="field" type="time" style={{ padding: 8 }} value={cur.end} onChange={(e) => e.target.value && edit({ end: e.target.value })} onBlur={() => draft && commit(draft)} />
+          {/* Label above the pickers: two time inputs plus a label don't fit side by side on a phone. */}
+          <div className="col" style={{ gap: 6 }}>
+            <span className="sub">School nights</span>
+            <div className="row" style={{ gap: 8 }}>
+              <input className="field" type="time" style={{ padding: 8, flex: 1, minWidth: 0 }} value={cur.start} onChange={(e) => e.target.value && edit({ start: e.target.value })} onBlur={() => draft && commit(draft)} />
+              <span className="sub">to</span>
+              <input className="field" type="time" style={{ padding: 8, flex: 1, minWidth: 0 }} value={cur.end} onChange={(e) => e.target.value && edit({ end: e.target.value })} onBlur={() => draft && commit(draft)} />
+            </div>
           </div>
-          <div className="row" style={{ gap: 8 }}>
-            <span className="sub" style={{ flexShrink: 0, width: 92 }}>Fri & Sat</span>
-            {cur.startWeekend && cur.endWeekend
-              ? (
-                <>
-                  <input className="field" type="time" style={{ padding: 8 }} value={cur.startWeekend} onChange={(e) => e.target.value && edit({ startWeekend: e.target.value })} onBlur={() => draft && commit(draft)} />
-                  <span className="sub">to</span>
-                  <input className="field" type="time" style={{ padding: 8 }} value={cur.endWeekend} onChange={(e) => e.target.value && edit({ endWeekend: e.target.value })} onBlur={() => draft && commit(draft)} />
-                  <button className="btn btn--text" style={{ minHeight: 0 }} onClick={() => commit({ ...cur, startWeekend: undefined, endWeekend: undefined })}>Same</button>
-                </>
-              )
-              : <button className="btn btn--text" style={{ minHeight: 0, padding: 0 }} onClick={() => commit({ ...cur, startWeekend: cur.start === '22:00' ? '23:00' : '22:00', endWeekend: '07:30' })}>Same as school nights · make different</button>}
+          <div className="col" style={{ gap: 6 }}>
+            <div className="row" style={{ gap: 8 }}>
+              <span className="sub">Fri & Sat</span>
+              <span className="spacer" />
+              {cur.startWeekend && cur.endWeekend
+                ? <button className="btn btn--text" style={{ minHeight: 0, padding: 0 }} onClick={() => commit({ ...cur, startWeekend: undefined, endWeekend: undefined })}>Same as school nights</button>
+                : <button className="btn btn--text" style={{ minHeight: 0, padding: 0 }} onClick={() => commit({ ...cur, startWeekend: cur.start === '22:00' ? '23:00' : '22:00', endWeekend: '07:30' })}>Make different</button>}
+            </div>
+            {cur.startWeekend && cur.endWeekend && (
+              <div className="row" style={{ gap: 8 }}>
+                <input className="field" type="time" style={{ padding: 8, flex: 1, minWidth: 0 }} value={cur.startWeekend} onChange={(e) => e.target.value && edit({ startWeekend: e.target.value })} onBlur={() => draft && commit(draft)} />
+                <span className="sub">to</span>
+                <input className="field" type="time" style={{ padding: 8, flex: 1, minWidth: 0 }} value={cur.endWeekend} onChange={(e) => e.target.value && edit({ endWeekend: e.target.value })} onBlur={() => draft && commit(draft)} />
+              </div>
+            )}
           </div>
           {tooShort && <p className="chore-sub chore-sub--reject" style={{ margin: 0 }}>Bedtime has to be at least 15 minutes long — the device can’t schedule anything shorter. Not saved yet.</p>}
         </>
@@ -383,7 +391,7 @@ function SettleSheet({ kid, onClose }: { kid: Kid; onClose: () => void }) {
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="handle" />
         <h2 style={{ fontSize: 22 }}>{kid.name}’s stash — {fmtMoney(bal)} owed</h2>
         {unpaid.length > 0 && (

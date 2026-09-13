@@ -31,8 +31,14 @@
 
 /* ---- Base ---- */
 * { box-sizing: border-box; }
-html, body, #root { margin: 0; min-height: 100%; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; -webkit-font-smoothing: antialiased; }
+/* App shell: the document itself never scrolls. Each screen scrolls inside an .app-scroll
+   box (kid screens, or the parent <main>), so the tab bar sits in normal flow, the page
+   can't rubber-band as a whole, and nothing has to reserve space for a fixed bar.
+   Safe areas come from env() with viewport-fit=cover (capacitor contentInset: never). */
+html, body, #root { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+#root { display: flex; flex-direction: column; }
+.app-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
 input, textarea, select { font: inherit; font-size: 16px; color: inherit; }
 h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: 800; letter-spacing: -0.01em; }
@@ -40,13 +46,17 @@ h1 { font-size: 28px; } h2 { font-size: 23px; } h3 { font-size: 19px; }
 a { color: var(--accent-deep); text-decoration: none; font-weight: 700; }
 
 /* ---- Layout ---- */
-.screen { max-width: 430px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) var(--pad) 96px; display: flex; flex-direction: column; gap: 14px; min-height: 100dvh; }
+.screen { max-width: 430px; width: 100%; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) var(--pad) calc(28px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; min-height: 100%; }
 .screen--dark { background: #121110; color: #fff; max-width: none; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
 .screen--center { justify-content: center; }
-.row { display: flex; align-items: center; gap: 12px; }
+/* Flex items default to min-width:auto, which lets a wide child (photo strip, long chip row)
+   push its column wider than the viewport and clip at the right edge. Let them shrink and
+   clip inside their own box instead. */
+.screen > *, .col > *, .card > *, .kid-card > * { min-width: 0; }
+.row { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .row--between { justify-content: space-between; }
 .col { display: flex; flex-direction: column; gap: 10px; }
-.spacer { flex: 1; }
+.spacer { flex: 1; min-width: 0; }
 .date { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); }
 .section-label { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin-top: 4px; }
 .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px; flex-shrink: 0; }
@@ -85,7 +95,7 @@ a { color: var(--accent-deep); text-decoration: none; font-weight: 700; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 
 /* ---- Buttons ---- */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; border-radius: 14px; min-height: 44px; padding: 0 18px; transition: transform .08s; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; border-radius: 14px; min-height: 44px; padding: 0 18px; transition: transform .08s; white-space: nowrap; flex-shrink: 0; }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn--primary { background: var(--accent); color: #fff; width: 100%; min-height: 52px; font-size: 16px; }
@@ -121,7 +131,10 @@ a { color: var(--accent-deep); text-decoration: none; font-weight: 700; }
 .quiet { font-weight: 600; font-size: 13px; color: var(--ink-3); }
 
 /* ---- Tab bar ---- */
-.tabbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); z-index: 10; }
+/* In flow at the bottom of .parent-shell (not fixed): the content area above it scrolls. */
+.tabbar { flex-shrink: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); z-index: 10; }
+.parent-shell { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.parent-shell > main { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 700; font-size: 11px; color: var(--ink-3); position: relative; padding: 4px 14px; }
 .tab.active { color: var(--accent); }
 .tab svg { width: 24px; height: 24px; }
@@ -140,7 +153,10 @@ a { color: var(--accent-deep); text-decoration: none; font-weight: 700; }
 
 /* ---- Sheets & forms ---- */
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(20,19,17,.45); display: flex; align-items: flex-end; z-index: 20; }
-.sheet { background: var(--card); width: 100%; max-width: 430px; margin: 0 auto; border-radius: 24px 24px 0 0; padding: 10px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+/* Tall sheets scroll inside themselves; the cap uses dvh so the bottom never hides behind
+   the home indicator the way 85vh did. */
+.sheet { background: var(--card); width: 100%; max-width: 430px; margin: 0 auto; border-radius: 24px 24px 0 0; padding: 10px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+.sheet > * { flex-shrink: 0; min-width: 0; }
 .handle { width: 40px; height: 5px; background: var(--border-strong); border-radius: 99px; margin: 0 auto 6px; }
 .reason-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .reason-chip { border: 1px solid var(--border-strong); border-radius: 999px; padding: 9px 14px; font-weight: 700; font-size: 13px; background: var(--card); }
@@ -278,13 +294,16 @@ textarea.field { resize: vertical; min-height: 72px; }
 
 /* ---- Tablet / desktop parent layout ---- */
 @media (min-width: 900px) {
-  .parent-shell { display: grid; grid-template-columns: 216px 1fr; min-height: 100dvh; }
-  .sidebar { background: var(--card); border-right: 1px solid var(--border); padding: 24px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .parent-shell { display: grid; grid-template-columns: 216px 1fr; grid-template-rows: 100%; height: 100%; }
+  .parent-shell > main { height: 100%; }
+  .sidebar { background: var(--card); border-right: 1px solid var(--border); padding: calc(24px + env(safe-area-inset-top)) 14px 24px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
   .sidebar .tab { flex-direction: row; justify-content: flex-start; gap: 10px; font-size: 14px; padding: 10px 12px; border-radius: 12px; }
   .sidebar .tab.active { background: var(--accent-tint); }
   .sidebar .badge { position: static; margin-left: auto; }
   .parent-shell .screen { max-width: 880px; padding-bottom: 40px; }
   .parent-shell .tabbar { display: none; }
+  /* Kid screens on a landscape iPad: wider than a phone column, still readable. */
+  .app-scroll > .screen { max-width: 600px; }
   .kid-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 }
 @media (max-width: 899px) {

@@ -182,7 +182,7 @@ function GroupSheet({ draft, onChange, onClose }: { draft: GroupDraft; onChange:
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="handle" />
         <h2 style={{ fontSize: 22 }}>{draft.id ? 'Edit chore list' : 'New chore list'}</h2>
         <div className="row">

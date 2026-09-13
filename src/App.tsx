@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { MockStoreProvider, useStore } from './lib/store';
 import { LiveStoreProvider, useIdentity } from './lib/store.live';
 import { hasBackend } from './lib/supabase';
@@ -62,12 +62,15 @@ function AppRoutes({ home }: { home: string }) {
     <PermissionsGate />
     <LightboxHost />
     <Routes>
-      <Route path="/" element={home === '/' ? <Welcome /> : <Navigate to={home} replace />} />
-      <Route path="/states" element={<States />} />
-      <Route path="/kid" element={<KidHome />} />
-      <Route path="/kid/stats" element={<KidStats />} />
-      <Route path="/kid/submit/:id" element={<ChoreSubmit />} />
-      <Route path="/kid/quest/:id" element={<ChoreSubmit quest />} />
+      {/* Every non-parent screen scrolls inside its own box; the parent shell has its own. */}
+      <Route element={<ScrollLayout />}>
+        <Route path="/" element={home === '/' ? <Welcome /> : <Navigate to={home} replace />} />
+        <Route path="/states" element={<States />} />
+        <Route path="/kid" element={<KidHome />} />
+        <Route path="/kid/stats" element={<KidStats />} />
+        <Route path="/kid/submit/:id" element={<ChoreSubmit />} />
+        <Route path="/kid/quest/:id" element={<ChoreSubmit quest />} />
+      </Route>
       <Route path="/parent" element={<ParentShell />}>
         <Route index element={<Dashboard />} />
         <Route path="approvals" element={<Approvals />} />
@@ -79,6 +82,14 @@ function AppRoutes({ home }: { home: string }) {
     </Routes>
     </>
   );
+}
+
+/** The scrolling box for stand-alone screens; scrolls back to the top on every route change. */
+function ScrollLayout() {
+  const ref = useRef<HTMLDivElement>(null);
+  const { pathname } = useLocation();
+  useEffect(() => { ref.current?.scrollTo({ top: 0 }); }, [pathname]);
+  return <div ref={ref} className="app-scroll"><Outlet /></div>;
 }
 
 /** Launch splash (Signal search): arcs pulse, wordmark + tagline fade up, dots bounce. */
@@ -105,7 +116,7 @@ function useSplashHold(active: boolean) {
 function LiveApp() {
   const id = useIdentity();
   if (!id.ready) return <Splash />;
-  if (!id.role) return <Auth onDone={id.refresh} needsFamily={!!id.session && !id.session.user.is_anonymous} />;
+  if (!id.role) return <div className="app-scroll"><Auth onDone={id.refresh} needsFamily={!!id.session && !id.session.user.is_anonymous} /></div>;
   return (
     <LiveStoreProvider identity={id}>
       <AppRoutes home={id.role === 'parent' ? '/parent' : '/kid'} />

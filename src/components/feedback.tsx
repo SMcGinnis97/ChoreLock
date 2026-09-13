@@ -61,17 +61,20 @@ export function PullToRefresh({ onRefresh, caption = 'Checking chores…', child
   const [pull, setPull] = useState(0);
   const [busy, setBusy] = useState(false);
   const startY = useRef<number | null>(null);
+  const root = useRef<HTMLDivElement>(null);
   const THRESHOLD = 60, MAX = 86;
 
   if (!onRefresh) return <>{children}</>;
 
+  // The page never scrolls as a whole (app-shell layout); read the nearest .app-scroll box.
+  const scrollTop = () => (root.current?.closest('.app-scroll') as HTMLElement | null)?.scrollTop ?? window.scrollY;
   const onTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY <= 0 && !busy) startY.current = e.touches[0].clientY;
+    if (scrollTop() <= 0 && !busy) startY.current = e.touches[0].clientY;
   };
   const onTouchMove = (e: React.TouchEvent) => {
     if (startY.current === null || busy) return;
     const dy = e.touches[0].clientY - startY.current;
-    if (window.scrollY > 0 || dy <= 0) { setPull(0); return; }
+    if (scrollTop() > 0 || dy <= 0) { setPull(0); return; }
     setPull(Math.min(MAX, dy * 0.5));
   };
   const onTouchEnd = () => {
@@ -83,7 +86,7 @@ export function PullToRefresh({ onRefresh, caption = 'Checking chores…', child
   };
 
   return (
-    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    <div ref={root} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div className="ptr" style={{ height: pull }}>
         <div className="ptr-circle"><span className={busy || pull >= THRESHOLD ? 'spin' : ''} style={{ display: 'grid', placeItems: 'center' }}><KeyGlyph size={20} /></span></div>
         <span className="ptr-cap">{caption}</span>

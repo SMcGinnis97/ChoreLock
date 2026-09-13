@@ -37,8 +37,8 @@ export default function LightboxHost() {
       onClick={() => setState(null)}
     >
       {item.isVideo
-        ? <video key={item.src} src={item.src} controls autoPlay playsInline style={{ maxWidth: '100vw', maxHeight: '100vh' }} onClick={(e) => e.stopPropagation()} />
-        : <img key={item.src} src={item.src} alt="" style={{ maxWidth: '100vw', maxHeight: '100vh', objectFit: 'contain' }} onClick={(e) => e.stopPropagation()} />}
+        ? <video key={item.src} src={item.src} controls autoPlay playsInline style={{ maxWidth: '100vw', maxHeight: '100dvh' }} onClick={(e) => e.stopPropagation()} />
+        : <img key={item.src} src={item.src} alt="" style={{ maxWidth: '100vw', maxHeight: '100dvh', objectFit: 'contain' }} onClick={(e) => e.stopPropagation()} />}
       <button aria-label="Close" style={{ ...btn, top: 'calc(env(safe-area-inset-top, 0px) + 14px)', right: 14, fontSize: 18 }} onClick={() => setState(null)}>✕</button>
       {items.length > 1 && (
         <>
