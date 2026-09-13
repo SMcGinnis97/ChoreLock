@@ -58,7 +58,15 @@ export function useIdentity(): Identity & { refresh: () => Promise<void> } {
       sb().from('parents').select('family_id').eq('user_id', session.user.id).maybeSingle(),
       sb().from('kid_users').select('kid_id').eq('user_id', session.user.id).maybeSingle(),
     ]);
-    setId({ session, role: p ? 'parent' : k ? 'kid' : null, familyId: p?.family_id ?? null, kidId: k?.kid_id ?? null, ready: true });
+    // Kids resolve their family too: proof uploads are keyed `<family>/<kid>/...` and the
+    // parent storage policy reads by family. Without this the path fell back to `f/…` and
+    // parents could not sign any proof photo (2026-09-13; migration 0030 also accepts f/).
+    let kidFamily: string | null = null;
+    if (!p && k) {
+      const { data: kr } = await sb().from('kids').select('family_id').eq('id', k.kid_id).maybeSingle();
+      kidFamily = kr?.family_id ?? null;
+    }
+    setId({ session, role: p ? 'parent' : k ? 'kid' : null, familyId: p?.family_id ?? kidFamily, kidId: k?.kid_id ?? null, ready: true });
   }, []);
   useEffect(() => {
     sb().auth.getSession().then(({ data }) => resolve(data.session));
