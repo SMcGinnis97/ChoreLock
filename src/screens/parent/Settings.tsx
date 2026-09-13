@@ -323,7 +323,9 @@ function BedtimeRow({ kid: k }: { kid: Kid }) {
     const next = { ...cur, ...patch };
     setDraft(next);
     if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => commit(next), 700);
+    // Long enough that a spinning time wheel settles before a save (each save is a
+    // co-parent notification; the server also coalesces repeats within 3 minutes).
+    timer.current = window.setTimeout(() => commit(next), 2000);
   };
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
 
